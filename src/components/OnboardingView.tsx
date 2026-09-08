@@ -1,372 +1,362 @@
-import React, { useState, useEffect, useRef } from "react";
-import { X, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
+import React, { useState } from "react";
+import { X, Sparkles, CheckCircle2, User, Globe, ArrowRight, ShieldCheck, LogIn, ChevronRight } from "lucide-react";
 
 interface OnboardingViewProps {
   onStartDay: () => void;
   learnerName?: string;
   isHindi?: boolean;
   onToggleLanguage?: () => void;
+  onSelectRole?: (role: "new_hire" | "manager") => void;
 }
-
-const SENTENCES = [
-  { id: "s1", en: "Set your pace", hi: "अपनी गति तय करें" },
-  { id: "s2", en: "Pick your topics", hi: "अपने विषय चुनें" },
-  { id: "s3", en: "Adapts each lesson", hi: "हर पाठ को अनुकूलित करता है" },
-  { id: "s4", en: "Build your streak", hi: "अपनी स्ट्रीक बनाएं" },
-  { id: "s5", en: "Track your growth", hi: "अपनी प्रगति ट्रैक करें" },
-];
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({
   onStartDay,
+  learnerName = "Associate",
   isHindi = false,
   onToggleLanguage,
+  onSelectRole,
 }) => {
-  // Starts at index 2 ("Adapts each lesson"), matching the screenshot preview
-  const [activeIndex, setActiveIndex] = useState<number>(2);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [showHowItWorksModal, setShowHowItWorksModal] = useState<boolean>(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showMenu, setShowMenu] = useState<boolean>(false);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [imgError, setImgError] = useState<boolean>(false);
 
-  // Auto-scroll loop: advances through sentences continuously every 2.6s
-  useEffect(() => {
-    if (isPaused) return;
+  // Relevant photo of young colleagues/learners smiling and pointing at a digital tablet together
+  const primaryImg =
+    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200&auto=format&fit=crop";
+  const fallbackImg =
+    "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1200&auto=format&fit=crop";
 
-    intervalRef.current = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % SENTENCES.length);
-    }, 2600);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isPaused]);
+  const handleQuickLogin = (role: "new_hire" | "manager") => {
+    setShowLoginModal(false);
+    if (onSelectRole) {
+      onSelectRole(role);
+    } else {
+      onStartDay();
+    }
+  };
 
   return (
     <div
-      id="onboarding-screen-container"
-      className="relative w-full h-full min-h-screen md:min-h-[812px] flex flex-col justify-between overflow-hidden select-none font-sans text-white"
-      style={{
-        background: "linear-gradient(180deg, #181324 0%, #281523 32%, #4a202c 54%, #32151d 78%, #14090e 100%)",
-      }}
+      id="login-landing-container"
+      className="relative w-full h-full min-h-screen md:min-h-[812px] flex flex-col justify-between overflow-hidden select-none font-sans bg-[#F4F1FA] text-slate-900"
     >
       {/* ========================================================================= */}
-      {/* 1. ATMOSPHERIC ARTWORK: DAWN SUN, ROLLING DUNES, & WALKING SILHOUETTE      */}
+      {/* 1. TOP PHOTO HERO SECTION WITH PURPLE THEME GRAVITY OVERLAY               */}
       {/* ========================================================================= */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Radiant Sunset/Dawn Sun Orb (upper center, behind figure) */}
-        <div
-          className="absolute top-[32%] left-[44%] -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-72 sm:h-72 rounded-full pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255, 222, 202, 0.95) 0%, rgba(246, 163, 130, 0.75) 28%, rgba(196, 78, 92, 0.45) 55%, transparent 75%)",
-            filter: "blur(20px)",
-          }}
-        />
-
-        {/* Dune hills and walking silhouette figure in precise vector paths */}
-        <svg
-          viewBox="0 0 400 480"
-          className="absolute bottom-[20%] left-0 right-0 w-full h-[380px] pointer-events-none"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <linearGradient id="backDuneGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#46222b" />
-              <stop offset="100%" stopColor="#2e141a" />
-            </linearGradient>
-            <linearGradient id="frontDuneGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#251117" />
-              <stop offset="100%" stopColor="#14080d" />
-            </linearGradient>
-          </defs>
-
-          {/* Back rolling dune hill */}
-          <path
-            d="M 0 240 Q 130 190 220 220 T 400 205 L 400 480 L 0 480 Z"
-            fill="url(#backDuneGradient)"
+      <div className="relative w-full flex-1 min-h-[460px] sm:min-h-[500px] overflow-hidden flex flex-col justify-between">
+        {/* Photographic Background */}
+        <div className="absolute inset-0">
+          <img
+            src={imgError ? fallbackImg : primaryImg}
+            alt="Learners working on digital tablet"
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-1000"
+            referrerPolicy="no-referrer"
           />
 
-          {/* Front rolling dune hill */}
-          <path
-            d="M 0 280 Q 150 250 270 285 T 400 265 L 400 480 L 0 480 Z"
-            fill="url(#frontDuneGradient)"
+          {/* Color Theme Gravity Overlay: Signature Deep Purple / Violet Duotone */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(112, 37, 251, 0.45) 0%, rgba(90, 24, 184, 0.40) 40%, rgba(46, 12, 94, 0.85) 100%)",
+              mixBlendMode: "multiply",
+            }}
           />
 
-          {/* Minimalist walking silhouette figure positioned on dune crest right under the sun */}
-          <g transform="translate(192, 178)" fill="#0d0508">
-            {/* Round Head */}
-            <circle cx="8" cy="8" r="7" />
-            {/* Slender Torso */}
-            <path d="M 4 17 C 4 14, 12 14, 12 17 L 14 42 C 14 44, 2 44, 2 42 Z" />
-            {/* Left Walking Leg */}
-            <path d="M 3 42 C 3 42, -1 64, -2 78 C -3 81, 2 81, 3 78 L 7 44 Z" />
-            {/* Right Walking Leg */}
-            <path d="M 9 42 C 9 42, 14 62, 16 78 C 17 81, 22 81, 21 78 L 13 44 Z" />
-          </g>
-        </svg>
+          {/* Secondary ambient warmth gradient to maintain photographic realism */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 75% 20%, rgba(255, 140, 160, 0.35) 0%, rgba(112, 37, 251, 0.3) 50%, rgba(30, 8, 60, 0.8) 100%)",
+            }}
+          />
 
-        {/* Soft bottom darkening gradient to give high contrast for typography */}
-        <div className="absolute bottom-0 left-0 right-0 h-80 bg-gradient-to-t from-[#14080d] via-[#14080d]/85 to-transparent pointer-events-none" />
+          {/* Soft dark vignette gradient at the bottom for crisp white typography legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-purple-950/80 via-transparent to-black/20 pointer-events-none" />
+        </div>
+
+        {/* --------------------------------------------------------------------- */}
+        {/* TOP NAVIGATION BAR: 2-LINE HAMBURGER ON LEFT & WHITE CIRCLE ON RIGHT */}
+        {/* --------------------------------------------------------------------- */}
+        <div className="relative z-20 px-6 pt-7 sm:pt-8 flex items-center justify-between">
+          {/* Hamburger Icon: 2 horizontal lines matching the attached screenshot */}
+          <button
+            type="button"
+            onClick={() => setShowMenu(true)}
+            className="p-2 -ml-2 rounded-xl hover:bg-white/15 active:scale-95 transition-all cursor-pointer group flex flex-col gap-1.5 justify-center"
+            aria-label="Navigation Menu"
+          >
+            {/* Top longer line */}
+            <span className="w-6 h-[2.5px] bg-white rounded-full group-hover:bg-purple-200 transition-colors shadow-xs" />
+            {/* Bottom shorter line */}
+            <span className="w-4 h-[2.5px] bg-white rounded-full group-hover:bg-purple-200 transition-colors shadow-xs" />
+          </button>
+
+          {/* White Solid Circle on Right */}
+          <button
+            type="button"
+            onClick={() => setShowLoginModal(true)}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+            aria-label="Account profile"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#7025fb]" />
+          </button>
+        </div>
+
+        {/* --------------------------------------------------------------------- */}
+        {/* OVERLAID DISPLAY TYPOGRAPHY (MATCHING SCREENSHOT STACKED FORMAT)      */}
+        {/* --------------------------------------------------------------------- */}
+        <div className="relative z-20 px-6 sm:px-7 pb-8 pt-4">
+          <h1 className="text-[34px] sm:text-[38px] font-black text-white leading-[1.08] tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+            {isHindi ? (
+              <>
+                <span className="block">आसान और</span>
+                <span className="block">तेज़</span>
+                <span className="block">ऑनलाइन</span>
+                <span className="block">सीखें!</span>
+              </>
+            ) : (
+              <>
+                <span className="block">Easy and</span>
+                <span className="block">quick</span>
+                <span className="block">Learn</span>
+                <span className="block">Operations</span>
+                <span className="block">online!</span>
+              </>
+            )}
+          </h1>
+
+          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/25 text-white text-[11px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{isHindi ? "डार्क स्टोर व वेयरहाउस ट्रेनिंग" : "Warehouse & Dark Store Ops"}</span>
+          </div>
+        </div>
+
+        {/* Organic Curved Wave Accent at bottom of photo, framing the white bottom card */}
+        <div className="absolute -bottom-1 left-0 right-0 w-full pointer-events-none overflow-hidden leading-none z-10">
+          <svg
+            viewBox="0 0 400 36"
+            className="w-full h-9 text-[#F4F1FA] fill-current"
+            preserveAspectRatio="none"
+          >
+            <path d="M 0,36 C 80,10 180,36 400,12 L 400,36 L 0,36 Z" />
+          </svg>
+        </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. TOP SECTION: LOGO ON LEFT + PILL BADGE & OPTIONAL LANGUAGE TOGGLE      */}
+      {/* 2. WHITE CARD BOTTOM SECTION WITH "START" AND "SIGN UP" PILL BUTTONS       */}
       {/* ========================================================================= */}
-      <div className="relative z-20 px-5 pt-6 sm:pt-7">
-        <div className="flex items-center justify-between">
-          {/* Top Left: App logo replacing Pathwise */}
-          <div id="onboarding-brand-logo" className="flex items-center gap-2.5 select-none">
-            {/* Pink squircle app icon matching screenshot icon style */}
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-[8px] bg-[#ff3377] flex items-center justify-center text-white shadow-xs font-black text-xs">
-              <span className="text-[10px] tracking-tighter">✓</span>
-            </div>
+      <div
+        id="login-bottom-card"
+        className="relative z-20 bg-white rounded-b-[44px] px-6 pt-5 pb-8 sm:pb-9 shadow-[0_-10px_25px_rgba(112,37,251,0.06)] flex flex-col justify-center space-y-3"
+      >
+        {/* TOP PILL BUTTON: "START" (SOFT TINTED PASTEL PILL) */}
+        <button
+          id="btn-login-start"
+          type="button"
+          onClick={onStartDay}
+          className="w-full py-3.5 sm:py-4 px-6 rounded-2xl sm:rounded-full bg-[#f3e8ff] hover:bg-[#ede9fe] active:scale-[0.985] text-[#7025fb] font-black text-sm sm:text-[15px] uppercase tracking-wider text-center transition-all cursor-pointer border border-purple-200/80 shadow-xs flex items-center justify-center gap-2"
+        >
+          <span>{isHindi ? "शुरू करें (START)" : "START"}</span>
+          <ArrowRight className="w-4 h-4 text-[#7025fb] stroke-[2.5]" />
+        </button>
 
-            {/* CHECKIN CHECKOUT text in clean, geometric uppercase bold typography */}
-            <span
-              className="font-extrabold text-white text-sm sm:text-base tracking-[0.14em] uppercase leading-none"
-              style={{
-                fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-                letterSpacing: "0.15em",
-              }}
-            >
-              CHECKIN CHECKOUT
-            </span>
-          </div>
+        {/* BOTTOM PILL BUTTON: "SIGN UP" / "LOG IN" (VIBRANT PURPLE THEME PILL) */}
+        <button
+          id="btn-login-signup"
+          type="button"
+          onClick={() => setShowLoginModal(true)}
+          className="w-full py-3.5 sm:py-4 px-6 rounded-2xl sm:rounded-full bg-[#7025fb] hover:bg-[#601ee0] active:scale-[0.985] text-white font-black text-sm sm:text-[15px] uppercase tracking-wider text-center transition-all cursor-pointer shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2"
+        >
+          <span>{isHindi ? "साइन अप / लॉग इन (SIGN UP)" : "SIGN UP"}</span>
+        </button>
 
-          {/* Optional language toggle on top right */}
+        {/* Subtle trust / language toggle caption */}
+        <div className="pt-1 flex items-center justify-between text-[11px] text-slate-400 font-medium px-2">
+          <span>{isHindi ? "चेक-इन चेकआउट v2.4" : "Checkin Checkout v2.4"}</span>
           {onToggleLanguage && (
             <button
+              type="button"
               onClick={onToggleLanguage}
-              className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 hover:bg-white/15 border border-white/15 text-white/80 backdrop-blur-md transition-all cursor-pointer active:scale-95"
-              title="Toggle Language"
+              className="text-[#7025fb] font-bold hover:underline cursor-pointer flex items-center gap-1"
             >
-              {isHindi ? "हिंदी • EN" : "EN • हिंदी"}
+              <Globe className="w-3 h-3" />
+              <span>{isHindi ? "English में बदलें" : "हिंदी में देखें"}</span>
             </button>
           )}
         </div>
-
-        {/* Pill Badge under logo: "Built to learn how you learn  See how" */}
-        <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 hover:bg-black/35 border border-white/10 backdrop-blur-md text-xs text-white/90 transition-colors">
-          <span className="text-[#ff386b] text-xs">✦</span>
-          <span className="font-medium text-[11px] sm:text-xs">
-            {isHindi ? "सीखने के तरीके से सीखें" : "Built to learn how you learn"}
-          </span>
-          <button
-            onClick={() => setShowHowItWorksModal(true)}
-            className="text-white/60 hover:text-white underline underline-offset-2 ml-1 cursor-pointer font-medium text-[11px] sm:text-xs"
-          >
-            {isHindi ? "देखें" : "See how"}
-          </button>
-        </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. MID-UPPER RIGHT: AUTO-SCROLLABLE SIDE SENTENCES (NO SHADOW, CLEAN LOOP)  */}
+      {/* 3. SLIDE-OVER / MODAL MENU (TRIGGERED BY TOP-LEFT 2-LINE HAMBURGER)       */}
       {/* ========================================================================= */}
-      <div className="relative z-20 flex justify-end px-5 my-auto pt-4 pb-2">
-        <div
-          id="auto-scrollable-sentences-loop"
-          className="flex items-center gap-2 select-none"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-          onTouchStart={() => setIsPaused(true)}
-          onTouchEnd={() => setIsPaused(false)}
-        >
-          {/* Vertical list of side sentences (NO box-shadow or drop-shadow, floating transparently) */}
-          <div className="flex flex-col items-end space-y-2.5 sm:space-y-3 text-right">
-            {SENTENCES.map((item, idx) => {
-              const isActive = idx === activeIndex;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveIndex(idx)}
-                  className={`flex items-center justify-end gap-1.5 transition-all duration-300 cursor-pointer text-right ${
-                    isActive
-                      ? "text-white font-bold text-sm sm:text-[15px] opacity-100 scale-100"
-                      : "text-white/40 hover:text-white/70 font-medium text-xs sm:text-sm opacity-60 scale-95"
-                  }`}
-                >
-                  {/* Vibrant pink triangle indicator for active sentence */}
-                  {isActive && (
-                    <span className="text-[#ff3377] text-[10px] sm:text-xs leading-none shrink-0 inline-block mr-0.5">
-                      ▶
-                    </span>
-                  )}
-                  <span className="whitespace-nowrap tracking-normal">
-                    {isHindi ? item.hi : item.en}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Vertical progress indicator track line on far right */}
-          <div className="w-[2px] h-28 sm:h-32 bg-white/20 rounded-full relative ml-1.5 shrink-0 overflow-hidden">
-            {/* Active pink slider marker traveling smoothly along the track */}
-            <div
-              className="w-full bg-[#ff3377] rounded-full transition-all duration-500 ease-out absolute"
-              style={{
-                height: "22px",
-                top: `${(activeIndex / (SENTENCES.length - 1)) * 80}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. BOTTOM SECTION: HEADLINE, SUBTITLE, DUAL ACTION BUTTONS & FOOTER NOTE  */}
-      {/* ========================================================================= */}
-      <div className="relative z-20 px-5 pb-6 sm:pb-7 space-y-3.5">
-        {/* Large Bold Display Heading */}
-        <h1 className="text-[26px] sm:text-[30px] font-black text-white leading-[1.12] tracking-tight max-w-sm">
-          {isHindi ? (
-            <>अपने दिन की सही शुरुआत करने का लर्निंग प्लेटफॉर्म</>
-          ) : (
-            <>The learning platform to start your day right</>
-          )}
-        </h1>
-
-        {/* Subtitle Paragraph */}
-        <p className="text-xs sm:text-[13px] text-white/75 font-normal leading-relaxed max-w-sm">
-          {isHindi
-            ? "एक त्वरित चेक-इन और Checkin Checkout आपकी गति, आपके लक्ष्यों और उपलब्ध दस मिनटों के अनुसार आज का पाठ तैयार करता है।"
-            : "One quick check-in and Checkin Checkout builds today's lesson around your pace, your goals, and the ten minutes you actually have."}
-        </p>
-
-        {/* Dual Pill CTA Buttons */}
-        <div className="flex items-center gap-2.5 pt-1">
-          {/* Primary Button: "Start my day" */}
-          <button
-            id="btn-start-my-day"
-            onClick={onStartDay}
-            className="flex-1 py-3.5 px-4 rounded-full bg-white hover:bg-slate-100 active:scale-95 text-slate-950 font-black text-sm text-center transition-all cursor-pointer shadow-none"
-          >
-            {isHindi ? "दिन शुरू करें" : "Start my day"}
-          </button>
-
-          {/* Secondary Button: "▶ How it works" */}
-          <button
-            id="btn-how-it-works"
-            onClick={() => setShowHowItWorksModal(true)}
-            className="flex-1 py-3.5 px-4 rounded-full bg-white/10 hover:bg-white/15 border border-white/25 active:scale-95 text-white font-bold text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-none"
-          >
-            <span className="text-[10px] leading-none">▶</span>
-            <span>{isHindi ? "यह कैसे काम करता है" : "How it works"}</span>
-          </button>
-        </div>
-
-        {/* Trust Caption at Bottom */}
-        <p className="text-[11px] text-white/50 text-center font-medium pt-1">
-          {isHindi
-            ? "दैनिक आदत बनाने वाले 500K+ शिक्षार्थियों का भरोसा"
-            : "Trusted by 500K+ learners building a daily habit"}
-        </p>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 5. "HOW IT WORKS" EXPLAINER MODAL (WHEN "HOW IT WORKS" OR "SEE HOW" TAPPED) */}
-      {/* ========================================================================= */}
-      {showHowItWorksModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
-          onClick={() => setShowHowItWorksModal(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-[#1b1220] border border-white/15 rounded-t-[32px] sm:rounded-[32px] p-6 text-white space-y-4 shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-pink-400 font-bold text-xs">
-                <Sparkles className="w-4 h-4" />
-                <span>{isHindi ? "लर्निंग लूप कैसे काम करता है" : "How The Loop Works"}</span>
+      {showMenu && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[32px] max-w-xs w-full p-5 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#7025fb] text-white flex items-center justify-center font-bold text-xs">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Checkin Checkout</h3>
+                  <p className="text-[10px] text-slate-500">Dark Store Learning OS</p>
+                </div>
               </div>
               <button
-                onClick={() => setShowHowItWorksModal(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer text-xs transition-colors"
+                type="button"
+                onClick={() => setShowMenu(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <h3 className="text-lg font-black text-white">
-              {isHindi ? "Checkin Checkout लूप" : "The Checkin Checkout Loop"}
-            </h3>
+            <div className="space-y-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  onStartDay();
+                }}
+                className="w-full p-3 rounded-2xl bg-purple-50 hover:bg-purple-100 text-[#7025fb] font-bold flex items-center justify-between cursor-pointer transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <LogIn className="w-4 h-4" />
+                  <span>{isHindi ? "दैनिक शिफ्ट शुरू करें" : "Enter Shift Dashboard"}</span>
+                </span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
 
-            <div className="space-y-3 text-xs text-white/80 leading-relaxed">
-              <div className="flex items-start gap-2.5 p-2.5 rounded-2xl bg-white/5 border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-[#ff3377] text-white flex items-center justify-center shrink-0 font-bold text-[11px] mt-0.5">
-                  1
-                </div>
-                <div>
-                  <div className="font-bold text-white text-xs">
-                    {isHindi ? "त्वरित चेक-इन (1 मिनट)" : "Quick Check-in (1 min)"}
-                  </div>
-                  <p className="text-[11px] text-white/60 mt-0.5">
-                    {isHindi
-                      ? "बताएं कि आप आज कैसा महसूस कर रहे हैं। सिस्टम तुरंत आपका दिन अनुकूलित करता है।"
-                      : "Share how you feel and your focus for the shift. The system adapts instantly."}
-                  </p>
-                </div>
-              </div>
+              {onToggleLanguage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleLanguage();
+                    setShowMenu(false);
+                  }}
+                  className="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-purple-600" />
+                    <span>{isHindi ? "Switch to English" : "हिंदी भाषा चुनें"}</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">
+                    {isHindi ? "EN" : "HI"}
+                  </span>
+                </button>
+              )}
 
-              <div className="flex items-start gap-2.5 p-2.5 rounded-2xl bg-white/5 border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-[#ff3377] text-white flex items-center justify-center shrink-0 font-bold text-[11px] mt-0.5">
-                  2
-                </div>
-                <div>
-                  <div className="font-bold text-white text-xs">
-                    {isHindi ? "अनुकूलित माइक्रो-पाठ (10 मिनट)" : "Adaptive Lesson (10 min)"}
-                  </div>
-                  <p className="text-[11px] text-white/60 mt-0.5">
-                    {isHindi
-                      ? "आपके पिक रेट और कमजोर क्षेत्रों के अनुसार आज का सबसे महत्वपूर्ण विषय।"
-                      : "Today's targeted micro-lesson tailored to your current speed and accuracy."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 p-2.5 rounded-2xl bg-white/5 border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-[#ff3377] text-white flex items-center justify-center shrink-0 font-bold text-[11px] mt-0.5">
-                  3
-                </div>
-                <div>
-                  <div className="font-bold text-white text-xs">
-                    {isHindi ? "फ्लोर टेलीमेट्री और बडी सहायता" : "Live Floor Practice & Buddy"}
-                  </div>
-                  <p className="text-[11px] text-white/60 mt-0.5">
-                    {isHindi
-                      ? "लाइव पिक रेट डायल और कभी भी बडी विक्रम से 1-टैप वॉयस सहायता।"
-                      : "Real-time pick rate telemetry dial and 1-tap voice support from Senior Buddy Vikram."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 p-2.5 rounded-2xl bg-white/5 border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-[#ff3377] text-white flex items-center justify-center shrink-0 font-bold text-[11px] mt-0.5">
-                  4
-                </div>
-                <div>
-                  <div className="font-bold text-white text-xs">
-                    {isHindi ? "चेक-आउट और प्रगति (Shift End)" : "Check-out & Growth"}
-                  </div>
-                  <p className="text-[11px] text-white/60 mt-0.5">
-                    {isHindi
-                      ? "शिफ्ट का दैनिक सारांश और जॉब-रेडिनेस फिगर पर वास्तविक प्रगति।"
-                      : "Review your daily shift achievements and watch your Job-Ready figure level up."}
-                  </p>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowLoginModal(true);
+                }}
+                className="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-between cursor-pointer transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-purple-600" />
+                  <span>{isHindi ? "रोल या खाता चुनें" : "Select Role / Persona"}</span>
+                </span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
             <button
+              type="button"
+              onClick={() => setShowMenu(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer transition-colors"
+            >
+              {isHindi ? "बंद करें" : "Close"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. LOGIN / SIGN UP MODAL (QUICK PERSONA & CREDENTIALS SELECTOR)           */}
+      {/* ========================================================================= */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[32px] max-w-sm w-full p-5 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  {isHindi ? "लॉग इन / साइन अप" : "Log In / Sign Up"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isHindi ? "आगे बढ़ने के लिए अपनी भूमिका चुनें" : "Choose your role to continue"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLoginModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Persona 1: Learner / Associate */}
+              <button
+                type="button"
+                onClick={() => handleQuickLogin("new_hire")}
+                className="w-full p-3.5 rounded-2xl bg-purple-50/80 hover:bg-purple-100 border border-purple-200/80 text-left flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#7025fb] text-white flex items-center justify-center font-black text-sm">
+                    A
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">
+                      {isHindi ? "वेयरहाउस एसोसिएट (लर्नर)" : "Warehouse Associate (Learner)"}
+                    </div>
+                    <div className="text-[11px] text-purple-700 font-medium">
+                      {isHindi ? "डे 3/14 • पिकिंग व ट्रेनिंग" : "Day 3/14 • Shift Ops & LMS"}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#7025fb]" />
+              </button>
+
+              {/* Persona 2: Manager / Shift Lead */}
+              <button
+                type="button"
+                onClick={() => handleQuickLogin("manager")}
+                className="w-full p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-left flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+                    M
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">
+                      {isHindi ? "शिफ्ट सुपरवाइज़र / मैनेजर" : "Shift Supervisor / Manager"}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      {isHindi ? "कोहोर्ट सिग्नल व हस्तक्षेप" : "Cohort Signals & Interventions"}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Direct One-click Start */}
+            <button
+              type="button"
               onClick={() => {
-                setShowHowItWorksModal(false);
+                setShowLoginModal(false);
                 onStartDay();
               }}
-              className="w-full py-3 rounded-full bg-white text-slate-950 font-black text-xs hover:bg-slate-100 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-3 rounded-2xl bg-[#7025fb] text-white text-xs font-bold shadow-md shadow-purple-500/20 active:scale-95 transition-transform cursor-pointer"
             >
-              <span>{isHindi ? "दिन शुरू करें" : "Start My Day"}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              {isHindi ? "तुरंत शुरू करें (Instant Start)" : "Instant Start"}
             </button>
           </div>
         </div>

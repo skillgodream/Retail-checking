@@ -337,13 +337,13 @@ export default function App() {
         isFramed ? "md:py-6 md:px-4" : ""
       }`}
     >
-      {/* Mobile Device Chassis Shell */}
+        {/* Mobile Device Chassis Shell */}
       <div
         className={`w-full mx-auto flex flex-col transition-all duration-300 ${
           isOnboarding
             ? isFramed
-              ? "max-w-[390px] md:rounded-[44px] md:shadow-[0_24px_60px_rgba(30,10,25,0.25)] md:overflow-hidden min-h-screen md:min-h-[844px] bg-[#181324]"
-              : "max-w-md min-h-screen bg-[#181324]"
+              ? "max-w-[390px] md:rounded-[44px] md:shadow-[0_24px_60px_rgba(112,37,251,0.22)] md:border md:border-purple-200/50 md:overflow-hidden min-h-screen md:min-h-[844px] bg-white"
+              : "max-w-md min-h-screen bg-white"
             : isFramed
             ? "max-w-md md:rounded-[36px] md:shadow-2xl md:border md:border-slate-300/80 md:overflow-hidden md:ring-8 md:ring-slate-900/5 min-h-screen md:min-h-[850px] bg-slate-50"
             : "max-w-lg min-h-screen shadow-xs bg-slate-50"
@@ -363,6 +363,11 @@ export default function App() {
             learnerName={activeHire.name}
             isHindi={isHindi}
             onToggleLanguage={() => setIsHindi((prev) => !prev)}
+            onSelectRole={(role) => {
+              if (role === "manager") setActiveTab("manager");
+              else setActiveTab("new_hire");
+              setIsOnboarding(false);
+            }}
           />
         ) : (
           <>

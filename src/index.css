@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* Live Animated Gradient & Mesh */
+@keyframes liveGradientFlow {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+@keyframes liveOrbFloat1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(25px, 15px) scale(1.15);
+  }
+}
+
+@keyframes liveOrbFloat2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1.1);
+  }
+  50% {
+    transform: translate(-20px, -15px) scale(0.95);
+  }
+}
+
+@keyframes liveOrbFloat3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(15px, -20px) scale(1.2);
+  }
+}
+
+/* Module Blink Keyframe (Purple Current Module) */
+@keyframes moduleBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 10px 25px -3px rgba(124, 58, 237, 0.55), 0 0 0 3px rgba(196, 138, 255, 0.7);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.97);
+    box-shadow: 0 4px 10px -2px rgba(124, 58, 237, 0.2), 0 0 0 0px rgba(196, 138, 255, 0);
+  }
+}
+
+.live-gradient-bg {
+  background: linear-gradient(135deg, #4814b8 0%, #3017ba 22%, #0055ff 52%, #0084ff 74%, #00d4ff 100%);
+  background-size: 220% 220%;
+  animation: liveGradientFlow 9s ease-in-out infinite;
+}
+
+.animate-orb-1 {
+  animation: liveOrbFloat1 8s ease-in-out infinite;
+}
+
+.animate-orb-2 {
+  animation: liveOrbFloat2 10s ease-in-out infinite;
+}
+
+.animate-orb-3 {
+  animation: liveOrbFloat3 7s ease-in-out infinite;
+}
+
+.animate-module-blink {
+  animation: moduleBlink 1.8s ease-in-out infinite;
+}
+

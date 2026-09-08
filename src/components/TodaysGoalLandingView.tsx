@@ -2,25 +2,25 @@ import React, { useState } from "react";
 import {
   ChevronLeft,
   ChevronDown,
-  Zap,
+  ChevronUp,
   Sparkles,
   CheckCircle2,
-  Circle,
   Play,
-  ArrowRight,
+  Pause,
   Clock,
-  Award,
-  TrendingUp,
   Languages,
   Check,
-  Stethoscope,
-  Pencil,
-  AlertCircle,
-  BookOpen,
-  ListTodo,
+  Video,
+  Volume2,
+  Maximize2,
+  Phone,
+  Mic,
+  ArrowRight,
+  Info,
+  Layers,
+  Flame,
 } from "lucide-react";
-import { NewHire, TrainingModule } from "../types";
-import { MANDATORY_TRAINING_MODULES } from "../data/modulesData";
+import { NewHire } from "../types";
 import { LearnerSection } from "./FloatingGlassMenu";
 
 interface TodaysGoalLandingViewProps {
@@ -34,6 +34,28 @@ interface TodaysGoalLandingViewProps {
   onOpenBuddy?: () => void;
 }
 
+interface GoalCard {
+  id: string;
+  stepNumber: number;
+  title: string;
+  titleHi: string;
+  tag: string;
+  tagHi: string;
+  duration: string;
+  readinessPoints: number;
+  whyText: string;
+  whyTextHi: string;
+  whatText: string;
+  whatTextHi: string;
+  actionBullets: { en: string; hi: string }[];
+  videoTitle?: string;
+  videoTitleHi?: string;
+  videoDuration?: string;
+  videoThumbnailUrl: string;
+  videoTips: { en: string; hi: string }[];
+  isSpecialAction?: "buddy_call" | "voice_checkin" | "standard";
+}
+
 export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   newHire,
   currentDay,
@@ -41,37 +63,28 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   onToggleLanguage,
   onBack,
   onSelectSection,
-  onUpdateHire,
   onOpenBuddy,
 }) => {
   // Role selector dropdown state
   const [selectedRole, setSelectedRole] = useState<string>("Dark Store Picker • Zone A");
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState<boolean>(false);
 
-  // Interactive task completion state
-  const [completedTaskIds, setCompletedTaskIds] = useState<Record<string, boolean>>({
-    task_1: true, // One pre-checked to show progress
+  // Expandable card state (Card 1 expanded by default for instant onboarding clarity)
+  const [expandedCardId, setExpandedCardId] = useState<string | null>("card_1");
+
+  // Completion state for the 5 cards
+  const [completedCardIds, setCompletedCardIds] = useState<Record<string, boolean>>({
+    card_1: false,
+    card_2: false,
+    card_3: false,
+    card_4: false,
+    card_5: false,
   });
 
-  // Action feedback
-  const [drillStarted, setDrillStarted] = useState<boolean>(false);
-  const [completedModuleIds, setCompletedModuleIds] = useState<Record<string, boolean>>({});
-
-  // Live floor performance data
-  const currentRecord = (newHire?.daysHistory || []).find((d) => d.dayNumber === currentDay) || {
-    dayNumber: currentDay,
-    workSignal: {
-      targetPickRate: 50,
-      actualPickRate: 35,
-      accuracyRate: 98,
-      ordersCompleted: 44,
-      targetOrders: 65,
-    },
-  };
-
-  const actualPickRate = currentRecord.workSignal?.actualPickRate ?? 38;
-  const targetPickRate = currentRecord.workSignal?.targetPickRate ?? 50;
-  const accuracyRate = currentRecord.workSignal?.accuracyRate ?? 98;
+  // Interactive video simulation state per card
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [voiceRecording, setVoiceRecording] = useState<boolean>(false);
+  const [voiceSubmitted, setVoiceSubmitted] = useState<boolean>(false);
 
   // Authoritative live career readiness score calculation
   const baseReadiness =
@@ -81,116 +94,282 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
         : Math.round(newHire.overallReadinessScore)
       : Math.round((newHire.rampProgress || 0.74) * 100);
 
-  // Dynamic bonus for tasks checked today
-  const tasksBonus = Object.values(completedTaskIds).filter(Boolean).length * 2;
-  const modulesBonus = Object.values(completedModuleIds).filter(Boolean).length * 3;
-  const liveReadinessPct = Math.min(100, baseReadiness + tasksBonus + modulesBonus);
+  // Compute live readiness dynamically based on completed goal cards
+  const bonusPoints = Object.entries(completedCardIds).reduce((sum, [id, done]) => {
+    if (!done) return sum;
+    if (id === "card_1") return sum + 3;
+    if (id === "card_2") return sum + 3;
+    if (id === "card_3") return sum + 3;
+    if (id === "card_4") return sum + 4;
+    if (id === "card_5") return sum + 2;
+    return sum;
+  }, 0);
 
-  // Doctor's suggestion for today
-  const doctorDiagnosis = isHindi
-    ? "डॉक्टर सुझाव (AI Store Doctor): आइसल 4-8 में सामान खोजने का समय कम करें और 90 सेकंड की कोल्ड-चेन ड्रिल पूरी करें। इससे रेडीनेस स्कोर 74% से बढ़कर 85% लक्ष्य तक पहुंचेगा।"
-    : "Store Doctor Rx: Floor signal detects pick lag in Aisles 4-8. Complete the 15-min barcode scanner drill and Cold Room 90-sec SOP before peak shift to reach the 85% readiness benchmark.";
+  const liveReadinessPct = Math.min(100, baseReadiness + bonusPoints);
+  const completedCount = Object.values(completedCardIds).filter(Boolean).length;
 
-  // Today's prescribed modules (based on doctor's recommendation)
-  const todaysPrescribedModules: (TrainingModule & { rxReason: string; rxReasonHi: string })[] = [
+  // The 5 streamlined, sequential target cards
+  const GOAL_CARDS: GoalCard[] = [
     {
-      dayNumber: 3,
-      id: "lms-mod-03",
-      code: "LMS-MOD-03",
-      title: "Fast Barcode Scanner Alignment & Shelf Navigation",
-      titleHi: "तेज़ बारकोड स्कैनिंग और शेल्फ नेविगेशन",
-      description: "Quick optical scanner positioning, eliminating red-light mis-scans, and Aisle 4-8 coordinate routing.",
-      descriptionHi: "ऑप्टिकल स्कैनर का सही एंगल, लाल लाइट एरर से बचाव, और आइसल 4-8 का रूट।",
-      durationMinutes: 15,
-      mappedCapabilityIds: [3],
-      passingScore: 80,
-      rxReason: "Prescribed to eliminate barcode read latency in Aisle 6.",
-      rxReasonHi: "आइसल 6 में स्कैनिंग देरी को ठीक करने के लिए डॉक्टर द्वारा निर्धारित।",
-      activities: [],
+      id: "card_1",
+      stepNumber: 1,
+      title: "Fast Barcode Scanner Alignment & Sweep",
+      titleHi: "तेज़ बारकोड स्कैनर अलाइनमेंट व स्वीप तकनीक",
+      tag: "Speed & Accuracy",
+      tagHi: "स्पीड व एक्यूरेसी",
+      duration: "12 min",
+      readinessPoints: 3,
+      whyText:
+        "Floor sensors logged a 14-second scan delay in Aisle 6 due to barcode angle reflection and red-light mis-scans.",
+      whyTextHi:
+        "आइसल 6 में स्कैनर के गलत एंगल और रिफ्लेक्शन की वजह से 14 सेकंड की देरी दर्ज हुई।",
+      whatText:
+        "Master the 45° optical sweep technique and scan 10 consecutive test totes with zero error beeps.",
+      whatTextHi:
+        "स्कैनर को 45° एंगल पर पकड़ने की तकनीक सीखें और बिना एरर के लगातार 10 बारकोड स्कैन करें।",
+      actionBullets: [
+        {
+          en: "Watch the 2-minute demonstration clip on the 45° optical sweep.",
+          hi: "45° ऑप्टिकल स्वीप का 2 मिनट का वीडियो प्रदर्शन देखें।",
+        },
+        {
+          en: "Calibrate your ring scanner on the test shelf (Tote #4).",
+          hi: "टेस्ट शेल्फ (टोट #4) पर अपने रिंग स्कैनर को कैलिब्रेट करें।",
+        },
+        {
+          en: "Complete 10 test scans with instant green-light confirmation.",
+          hi: "हरी लाइट पुष्टि के साथ 10 टेस्ट स्कैन पूरे करें।",
+        },
+      ],
+      videoTitle: "Fast Barcode Scanner 45° Sweep Technique (2 min)",
+      videoTitleHi: "तेज़ बारकोड 45° स्वीप तकनीक वीडियो (2 मिनट)",
+      videoDuration: "2:15 min",
+      videoThumbnailUrl:
+        "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=800&auto=format&fit=crop",
+      videoTips: [
+        {
+          en: "Keep 6 to 8 inches distance from the label.",
+          hi: "लेबल से हमेशा 6 से 8 इंच की दूरी बनाए रखें।",
+        },
+        {
+          en: "Sweep top-to-bottom across the barcode stripes.",
+          hi: "बारकोड की धारियों पर ऊपर से नीचे की तरफ बीम घुमाएं।",
+        },
+        {
+          en: "Keep wrists level to prevent barcode glare from overhead lights.",
+          hi: "छत की लाइट के रिफ्लेक्शन से बचने के लिए कलाई सीधी रखें।",
+        },
+      ],
     },
     {
-      dayNumber: 4,
-      id: "lms-mod-04",
-      code: "LMS-MOD-04",
-      title: "Cold Chain Dairy & Perishable Tote Packaging",
-      titleHi: "कोल्ड चेन डेयरी और सेफ टोट पैकिंग",
-      description: "90-second freezer door protocol, insulated bag sealing, and avoiding condensation spoilage.",
-      descriptionHi: "90 सेकंड में फ्रीजर से पिक, इंसुलेटेड बैग सील और दूध-दही की सुरक्षित पैकिंग।",
-      durationMinutes: 20,
-      mappedCapabilityIds: [4],
-      passingScore: 85,
-      rxReason: "Critical SOP requirement before afternoon dairy shift peak.",
-      rxReasonHi: "दोपहर के पीक ऑर्डर से पहले कोल्ड चेन सुरक्षा नियम सीखना अनिवार्य है।",
-      activities: [],
-    },
-  ];
-
-  // Today's floor tasks
-  const todaysTasks = [
-    {
-      id: "task_1",
-      title: isHindi ? "आइसल 4 से 8 का वॉकथ्रू सीनियर साथी (विक्रम) के साथ" : "Aisle 4-8 physical walkthrough with Buddy Vikram",
-      category: isHindi ? "साथी वॉकथ्रू" : "Buddy Walk",
-      duration: "10 min",
-    },
-    {
-      id: "task_2",
-      title: isHindi ? "फिंगर-रिंग स्कैनर से 50 ऑर्डर बिना किसी एरर के स्कैन करें" : "Pick 50 orders using finger-ring scanner with 0 mis-scans",
-      category: isHindi ? "फ्लोर पिकिंग" : "Floor Pick",
-      duration: "30 min",
-    },
-    {
-      id: "task_3",
-      title: isHindi ? "कोल्ड रूम डेयरी 90-सेकंड एसओपी और इंसुलेटेड बैग सील" : "Cold Room dairy 90-sec retrieval SOP & insulated seal",
-      category: isHindi ? "गुणवत्ता व सुरक्षा" : "Quality SOP",
+      id: "card_2",
+      stepNumber: 2,
+      title: "Aisle 4–8 Route Walkthrough with Buddy Vikram",
+      titleHi: "आइसल 4-8 रूट वॉकथ्रू (सीनियर साथी विक्रम के साथ)",
+      tag: "Floor Navigation",
+      tagHi: "फ्लोर नेविगेशन",
       duration: "15 min",
+      readinessPoints: 3,
+      whyText:
+        "Heavy beverage & pantry orders in Aisles 4-8 showed backtracking, adding 35 meters of unnecessary cart walking.",
+      whyTextHi:
+        "आइसल 4-8 में भारी सामान और पेय पदार्थ उठाते समय बार-बार पीछे मुड़ने से समय नष्ट हो रहा था।",
+      whatText:
+        "Walk the single-pass route with Buddy Vikram to memorize fast rack coordinates and one-way cart flow.",
+      whatTextHi:
+        "साथी विक्रम के साथ चलकर एक तरफा कार्ट रूट और रैक्स के लोकेशन कोड याद करें।",
+      actionBullets: [
+        {
+          en: "Meet Senior Buddy Vikram at the Zone A dispatch staging bay.",
+          hi: "ज़ोन A डिस्पैच बे पर सीनियर साथी विक्रम से मिलें।",
+        },
+        {
+          en: "Memorize the 3 high-velocity bin locations in Aisles 4 & 6.",
+          hi: "आइसल 4 और 6 में सबसे ज्यादा बिकने वाले 3 रैक कोड याद करें।",
+        },
+        {
+          en: "Practice one-direction cart movement without blocking aisles.",
+          hi: "रास्ते में रुकावट डाले बिना वन-वे कार्ट मूवमेंट का अभ्यास करें।",
+        },
+      ],
+      videoTitle: "Aisle 4–8 Fastest Single-Pass Routing Guide",
+      videoTitleHi: "आइसल 4-8 सिंगल-पास फास्टेस्ट रूट गाइड",
+      videoDuration: "3:10 min",
+      videoThumbnailUrl:
+        "https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=800&auto=format&fit=crop",
+      videoTips: [
+        {
+          en: "Always stage cart facing outbound towards pack station.",
+          hi: "कार्ट का मुंह हमेशा पैक स्टेशन की तरफ रखें।",
+        },
+        {
+          en: "Pick heavy beverages first at bottom of tote, chips on top.",
+          hi: "भारी बोतलें हमेशा टोट के नीचे और चिप्स आदि ऊपर रखें।",
+        },
+      ],
+      isSpecialAction: "buddy_call",
     },
     {
-      id: "task_4",
-      title: isHindi ? "शिफ्ट के अंत में वॉयस रिपोर्ट दर्ज करें (चेक-इन)" : "Submit end-of-shift status update & voice check-in",
-      category: isHindi ? "दैनिक रिपोर्ट" : "Daily Report",
+      id: "card_3",
+      stepNumber: 3,
+      title: "Cold Chain 90-Second Retrieval Protocol & Tote Seal",
+      titleHi: "कोल्ड चेन 90-सेकंड प्रोटोकॉल व इंसुलेटेड टोट सील",
+      tag: "Quality SOP",
+      tagHi: "क्वालिटी एसओपी",
+      duration: "10 min",
+      readinessPoints: 3,
+      whyText:
+        "Quality audit requirement: Dairy and frozen goods must never stay outside temperature control beyond 90 seconds.",
+      whyTextHi:
+        "क्वालिटी नियम: दूध, पनीर व फ्रोजन सामान 90 सेकंड से ज्यादा बिना कूलिंग के नहीं रहना चाहिए।",
+      whatText:
+        "Review the 90-second stopwatch procedure, insert frozen ice sheets, and execute a double-zip thermal seal.",
+      whatTextHi:
+        "90 सेकंड टाइमर का पालन करें, कूलिंग शीट लगाएं और थर्मल बैग की चेन तुरंत बंद करें।",
+      actionBullets: [
+        {
+          en: "Retrieve cold-chain batch barcode from the handheld terminal.",
+          hi: "टर्मिनल पर कोल्ड-चेन बैच बारकोड स्वीकार करें।",
+        },
+        {
+          en: "Pick chilled items inside freezer within the 90-second visual timer.",
+          hi: "90 सेकंड के विज़ुअल टाइमर के अंदर फ्रीजर से सामान निकालें।",
+        },
+        {
+          en: "Insert insulated cooling barrier and zip tote tight before moving.",
+          hi: "आगे बढ़ने से पहले इंसुलेटेड बैग में बर्फ की शीट रखकर चेन बंद करें।",
+        },
+      ],
+      videoTitle: "Cold Chain 90-Sec Door-to-Tote Demonstration",
+      videoTitleHi: "कोल्ड चेन 90-सेकंड डोर-टू-टोट प्रदर्शन",
+      videoDuration: "2:40 min",
+      videoThumbnailUrl:
+        "https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=800&auto=format&fit=crop",
+      videoTips: [
+        {
+          en: "Prepare open insulated tote BEFORE opening the freezer door.",
+          hi: "फ्रीजर का दरवाजा खोलने से पहले इंसुलेटेड बैग तैयार रखें।",
+        },
+        {
+          en: "Double-check milk carton lids for seal integrity.",
+          hi: "दूध के पैकेट की सील ज़रूर जांच लें।",
+        },
+      ],
+    },
+    {
+      id: "card_4",
+      stepNumber: 4,
+      title: "50-Order Live Picking Sprint (Zero Mis-Scans)",
+      titleHi: "50 ऑर्डर लाइव पिकिंग स्प्रिंट (0 मिस-स्कैन लक्ष्य)",
+      tag: "Live Floor Sprint",
+      tagHi: "लाइव फ्लोर स्प्रिंट",
+      duration: "25 min",
+      readinessPoints: 4,
+      whyText:
+        "Proves continuous speed & accuracy to elevate your rate from 38 to the 50 picks/hr graduation target.",
+      whyTextHi:
+        "आपकी पिकिंग स्पीड 38 से बढ़ाकर 50 पिक/घंटा के मुख्य बेंचमार्क तक पहुंचाने के लिए यह टेस्ट ज़रूरी है।",
+      whatText:
+        "Run 50 live customer orders using your ring scanner, maintaining 98%+ picking accuracy throughout.",
+      whatTextHi:
+        "रिंग स्कैनर से 50 लाइव ऑर्डर पूरे करें और 98%+ सटीकता बनाए रखें।",
+      actionBullets: [
+        {
+          en: "Equip ring-scanner on index finger and strap mobile terminal to wrist.",
+          hi: "तर्जनी उंगली पर रिंग स्कैनर और कलाई पर मोबाइल टर्मिनल लगाएं।",
+        },
+        {
+          en: "Accept batch orders in Zone A and pick items in sequential aisle order.",
+          hi: "ज़ोन A में बैच ऑर्डर स्वीकार करें और लाइन से सामान पिक करें।",
+        },
+        {
+          en: "Confirm each bin barcode scan before dropping item into the designated tote.",
+          hi: "सामान टोट में रखने से पहले शेल्फ बारकोड अवश्य स्कैन करें।",
+        },
+      ],
+      videoTitle: "Continuous Rhythm Picking & Tote Staging Sprint",
+      videoTitleHi: "निरंतर पिकिंग रिदम और टोट स्टेजिंग गाइड",
+      videoDuration: "3:30 min",
+      videoThumbnailUrl:
+        "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=800&auto=format&fit=crop",
+      videoTips: [
+        {
+          en: "Keep eyes on the next bin code while placing the current item.",
+          hi: "सामान बैग में रखते समय ही अगली शेल्फ का नंबर देख लें।",
+        },
+        {
+          en: "Check item weight before lifting to avoid awkward cart balance.",
+          hi: "सामान उठाने से पहले वजन का अंदाज़ा लगाएं।",
+        },
+      ],
+    },
+    {
+      id: "card_5",
+      stepNumber: 5,
+      title: "Shift Check-Out & Voice Reflection",
+      titleHi: "शिफ्ट चेक-आउट और वॉयस रिपोर्ट",
+      tag: "Shift Wrap-up",
+      tagHi: "शिफ्ट समापन",
       duration: "5 min",
+      readinessPoints: 2,
+      whyText:
+        "Closes your daily learning loop and signals Shift Lead Priya that you met all milestone criteria.",
+      whyTextHi:
+        "दिन भर की प्रगति को सुरक्षित करता है और शिफ्ट लीड प्रिया को आपकी उपलब्धियों की सूचना देता है।",
+      whatText:
+        "Record a quick 30-second voice reflection on what went well and which aisle felt easiest.",
+      whatTextHi:
+        "30 सेकंड का ऑडियो संदेश रिकॉर्ड करें कि आज क्या अच्छा रहा और कौन सा काम सबसे आसान लगा।",
+      actionBullets: [
+        {
+          en: "Review your final picks/hr rate on the live telemetry dial.",
+          hi: "लाइव टेलीमेट्री डायल पर अपनी अंतिम स्पीड देखें।",
+        },
+        {
+          en: "Record a 30-second audio check-in describing today's floor experience.",
+          hi: "आज के अनुभव पर 30 सेकंड का वॉयस संदेश रिकॉर्ड करें।",
+        },
+        {
+          en: "Lock in today's readiness boost (+11% total potential for Day 3).",
+          hi: "आज की कुल प्रगति (+11% तक) को सुरक्षित करें।",
+        },
+      ],
+      videoTitle: "How End-of-Shift Check-Out Boosts Your Career Readiness",
+      videoTitleHi: "चेक-आउट से करियर रेडीनेस स्कोर कैसे बढ़ता है",
+      videoDuration: "1:45 min",
+      videoThumbnailUrl:
+        "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=800&auto=format&fit=crop",
+      videoTips: [
+        {
+          en: "Mention any out-of-stock bins so night replenishment fixes them.",
+          hi: "यदि किसी शेल्फ पर सामान खत्म था, तो वॉयस में ज़रूर बताएं।",
+        },
+        {
+          en: "Confirm buddy Vikram assisted with Aisle 4-8 walkthrough.",
+          hi: "पुष्टि करें कि विक्रम भाई ने आपको आइसल 4-8 समझाया।",
+        },
+      ],
+      isSpecialAction: "voice_checkin",
     },
   ];
 
-  const handleToggleTask = (taskId: string) => {
-    setCompletedTaskIds((prev) => ({
+  const handleToggleCardExpansion = (cardId: string) => {
+    setExpandedCardId((prev) => (prev === cardId ? null : cardId));
+  };
+
+  const handleToggleCardDone = (cardId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCompletedCardIds((prev) => ({
       ...prev,
-      [taskId]: !prev[taskId],
+      [cardId]: !prev[cardId],
     }));
   };
 
-  const handleToggleModule = (modId: string) => {
-    setCompletedModuleIds((prev) => ({
-      ...prev,
-      [modId]: !prev[modId],
-    }));
-  };
-
-  const handleStartDrill = () => {
-    setDrillStarted(true);
-    // Mark first pending task complete for immediate interactive joy
-    const pendingTask = todaysTasks.find((t) => !completedTaskIds[t.id]);
-    if (pendingTask) {
-      setCompletedTaskIds((prev) => ({
-        ...prev,
-        [pendingTask.id]: true,
-      }));
-    }
-    setTimeout(() => {
-      setDrillStarted(false);
-    }, 2500);
-  };
-
-  // Math for circular progress arc matching Screenshot 2026-09-08 at 12.58.01 PM.png
-  // SVG center (130, 130), radius = 96. Angle spans from -140 deg to +140 deg (280 deg total)
+  // Math for circular progress arc matching reference design
   const radius = 96;
   const center = 130;
   const strokeWidth = 10;
-  // Progress fraction (0 to 1) based on live readiness (clamped to 0.1 - 1.0)
   const progressRatio = Math.max(0.1, Math.min(1, liveReadinessPct / 100));
-
-  // Angles: Start at -135° (top-left) to +135° (bottom-right), total 270°
   const startAngle = -135;
   const totalSweep = 270;
   const currentAngle = startAngle + totalSweep * progressRatio;
@@ -212,11 +391,9 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
 
   const backgroundTrackPath = describeArc(center, center, radius, startAngle, startAngle + totalSweep);
   const activeArcPath = describeArc(center, center, radius, startAngle, currentAngle);
-
   const startNode = polarToCartesian(center, center, radius, startAngle);
   const endNode = polarToCartesian(center, center, radius, currentAngle);
 
-  // Cardinal milestones along arc matching reference thermostat
   const milestones = [
     { label: "10%", angle: -135 },
     { label: "35%", angle: -65 },
@@ -226,9 +403,9 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 pb-28 select-none">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-32 select-none">
       {/* ========================================================= */}
-      {/* 1. TOP PURPLE APP BAR (MATCHING SCREENSHOT 12.58.01)       */}
+      {/* 1. TOP PURPLE HERO APP BAR (COMPLETELY PRESERVED AS DIRECTED) */}
       {/* ========================================================= */}
       <div className="w-full bg-[#271549] text-white pt-3 pb-4 px-4 shadow-md relative z-20">
         {/* Status bar notch representation */}
@@ -254,7 +431,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
             <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
           </button>
 
-          {/* Heading: TODAY'S GOAL (matching NEST THERMOSTAT in screenshot) */}
+          {/* Heading: TODAY'S GOAL */}
           <div className="text-center">
             <h1 className="text-sm font-black tracking-widest uppercase text-white font-mono">
               {isHindi ? "आज का लक्ष्य" : "TODAY'S GOAL"}
@@ -264,7 +441,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
             </p>
           </div>
 
-          {/* Language toggle or quick action */}
+          {/* Language toggle */}
           {onToggleLanguage ? (
             <button
               type="button"
@@ -280,25 +457,29 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
         </div>
       </div>
 
-      {/* MAIN CONTENT CONTAINER */}
-      <div className="max-w-md mx-auto px-4 space-y-5 pt-3">
-        {/* ========================================================= */}
-        {/* 2. ROLE SELECTOR PILL (MATCHING 'LIVING ROOM ▾' DROPDOWN)  */}
-        {/* ========================================================= */}
+      {/* ========================================================= */}
+      {/* MAIN CONTENT CONTAINER                                    */}
+      {/* ========================================================= */}
+      <div className="max-w-md mx-auto px-4 space-y-4 pt-3">
+        {/* Role Selector Pill */}
         <div className="relative flex justify-center">
           <button
             type="button"
             onClick={() => setIsRoleDropdownOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200/90 shadow-sm text-xs font-black text-slate-800 tracking-tight transition-all active:scale-98 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200/90 shadow-2xs text-xs font-black text-slate-800 tracking-tight transition-all active:scale-98 cursor-pointer"
           >
             <span className="w-2 h-2 rounded-full bg-violet-600" />
             <span>{selectedRole}</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isRoleDropdownOpen ? "rotate-180" : ""}`} />
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                isRoleDropdownOpen ? "rotate-180" : ""
+              }`}
+            />
           </button>
 
           {/* Role selector dropdown */}
           {isRoleDropdownOpen && (
-            <div className="absolute top-11 z-30 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl py-1.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute top-10 z-30 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl py-1.5 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-slate-100">
                 {isHindi ? "भूमिका व क्षेत्र चुनें" : "Select Role & Work Zone"}
               </div>
@@ -327,24 +508,20 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
           )}
         </div>
 
-        {/* ========================================================= */}
-        {/* 3. CIRCULAR PROGRESS GAUGE (MATCHING SCREENSHOT 12.58.01) */}
-        {/* ========================================================= */}
-        <div className="bg-gradient-to-b from-slate-50/80 to-purple-50/30 rounded-[32px] p-4 border border-purple-100/70 shadow-sm flex flex-col items-center relative overflow-hidden">
+        {/* Circular Progress Gauge & Live Progress Bar */}
+        <div className="bg-white rounded-[32px] p-4 border border-purple-100 shadow-xs flex flex-col items-center relative overflow-hidden">
           {/* Subtle background glow */}
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-200/20 rounded-full blur-3xl pointer-events-none" />
 
           {/* SVG Circular Gauge */}
-          <div className="relative w-[260px] h-[220px] flex items-center justify-center">
-            <svg width="260" height="230" viewBox="0 0 260 230" className="overflow-visible">
+          <div className="relative w-[240px] h-[195px] flex items-center justify-center">
+            <svg width="240" height="205" viewBox="0 0 260 230" className="overflow-visible">
               <defs>
-                {/* Vibrant orange gradient matching reference thermostat */}
                 <linearGradient id="landingOrangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#FFA62B" />
                   <stop offset="50%" stopColor="#FF7A00" />
                   <stop offset="100%" stopColor="#FF5500" />
                 </linearGradient>
-                {/* Glow filter */}
                 <filter id="orangeGlow" x="-20%" y="-20%" width="140%" height="140%">
                   <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#FF7A00" floodOpacity="0.4" />
                 </filter>
@@ -370,14 +547,9 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
               />
 
               {/* Start circular terminal node */}
-              <circle
-                cx={startNode.x}
-                cy={startNode.y}
-                r={strokeWidth / 2 + 1}
-                fill="#FFA62B"
-              />
+              <circle cx={startNode.x} cy={startNode.y} r={strokeWidth / 2 + 1} fill="#FFA62B" />
 
-              {/* Active current circular terminal node (prominent rounded endpoint) */}
+              {/* Active current circular terminal node */}
               <circle
                 cx={endNode.x}
                 cy={endNode.y}
@@ -406,314 +578,450 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
               })}
             </svg>
 
-            {/* Central live temperature-style percentage readout */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pt-3 pointer-events-none">
+            {/* Central percentage readout */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pt-2 pointer-events-none">
               <div className="flex items-baseline gap-0.5">
-                <span className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none">
+                <span className="text-5xl font-black text-slate-900 tracking-tighter leading-none">
                   {liveReadinessPct}
                 </span>
-                <span className="text-2xl font-black text-amber-500">
-                  %
-                </span>
+                <span className="text-2xl font-black text-amber-500">%</span>
               </div>
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 mt-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">
                 {isHindi ? "करियर रेडीनेस स्कोर" : "Career Readiness"}
               </span>
               <div className="mt-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[10px] font-black text-emerald-700 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{liveReadinessPct >= 80 ? "Ready for Floor" : "Onboarding Ramp"}</span>
+                <span>{liveReadinessPct >= 85 ? "Target Achieved!" : "Target: 85%"}</span>
               </div>
             </div>
           </div>
 
-          {/* Live Progress Bar at the top (as explicitly requested: 'live progrs bar at the top') */}
-          <div className="w-full mt-2 space-y-1.5 px-2">
+          {/* Live Progress Bar toward 85% Target */}
+          <div className="w-full mt-1 space-y-1 px-2">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
-              <span>{isHindi ? "लाइव प्रगति ट्रैकर" : "Live Progress Bar"}</span>
-              <span className="text-purple-700 font-mono">{liveReadinessPct}% / 85% Target</span>
+              <span className="flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+                <span>{isHindi ? "दैनिक लक्ष्य प्रगति" : "Target Readiness Tracker"}</span>
+              </span>
+              <span className="text-[#7025fb] font-mono font-black">
+                {liveReadinessPct}% / 85%
+              </span>
             </div>
-            <div className="w-full h-2.5 bg-slate-200/80 rounded-full overflow-hidden p-0.5 shadow-inner">
+            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
               <div
-                className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 rounded-full transition-all duration-500 shadow-sm"
-                style={{ width: `${liveReadinessPct}%` }}
+                className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-[#7025fb] rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (liveReadinessPct / 85) * 100)}%` }}
               />
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-              <span>Training: {Object.values(completedModuleIds).filter(Boolean).length + 2}/10</span>
-              <span>Speed: {actualPickRate} / {targetPickRate} picks/hr</span>
-              <span>Accuracy: {accuracyRate}%</span>
+            <div className="flex justify-between text-[10px] text-slate-500 font-medium pt-0.5">
+              <span>{completedCount} of 5 Steps Finished</span>
+              <span>+{bonusPoints}% Earned Today</span>
             </div>
           </div>
         </div>
 
         {/* ========================================================= */}
-        {/* 4. TWO PARAMETER CARDS (LIGHT INTENSITY 72% & HUMIDITY 34%) */}
+        {/* SECTION TITLE: 5 THINGS TO REACH TARGET                   */}
         {/* ========================================================= */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* CARD 1: LIVE ROLE PERFORMANCE (Matching Light Intensity 72%) */}
-          <div
-            onClick={() => onSelectSection && onSelectSection("dial")}
-            className="bg-[#F0EBFA] border border-[#DDD0F5] hover:border-[#C4B0EC] rounded-3xl p-3.5 flex flex-col justify-between transition-all cursor-pointer active:scale-98 shadow-2xs group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-9 h-9 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-xs">
-                <Zap className="w-4 h-4 fill-violet-600" />
-              </div>
-              <button
-                type="button"
-                className="p-1 rounded-lg text-slate-400 group-hover:text-violet-700 transition-colors"
-                title="View role speed dial"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="mt-3">
-              <span className="text-[11px] font-bold text-slate-500 block">
-                {isHindi ? "रोल परफॉर्मेंस" : "Role Performance"}
-              </span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
-                  {actualPickRate}
-                </span>
-                <span className="text-xs font-bold text-slate-500">
-                  / {targetPickRate} {isHindi ? "पिक/घंटा" : "picks/hr"}
-                </span>
-              </div>
-              <p className="text-[10px] font-semibold text-violet-700 mt-1">
-                {accuracyRate}% {isHindi ? "सटीकता • लाइव" : "Accuracy • Live"}
-              </p>
-            </div>
-          </div>
-
-          {/* CARD 2: DOCTOR'S SUGGESTION (Matching Humidity 34%) */}
-          <div
-            onClick={() => {
-              // Smooth scroll to modules section below
-              document.getElementById("prescribed-modules-section")?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="bg-[#F0EBFA] border border-[#DDD0F5] hover:border-[#C4B0EC] rounded-3xl p-3.5 flex flex-col justify-between transition-all cursor-pointer active:scale-98 shadow-2xs group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-9 h-9 rounded-2xl bg-white flex items-center justify-center text-fuchsia-600 shadow-xs">
-                <Stethoscope className="w-4 h-4 text-fuchsia-600" />
-              </div>
-              <button
-                type="button"
-                className="p-1 rounded-lg text-slate-400 group-hover:text-fuchsia-700 transition-colors"
-                title="View Doctor prescription"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="mt-3">
-              <span className="text-[11px] font-bold text-slate-500 block">
-                {isHindi ? "डॉक्टर सुझाव" : "Doctor's Suggestion"}
-              </span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-sm font-black text-slate-900 tracking-tight leading-tight line-clamp-1">
-                  {isHindi ? "आइसल 4-8 व कोल्ड-चेन" : "Aisle 4-8 & Cold Chain"}
-                </span>
-              </div>
-              <p className="text-[10px] font-semibold text-fuchsia-700 mt-1 line-clamp-1">
-                {isHindi ? "2 मॉड्यूल निर्धारित" : "2 Prescribed Modules"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Doctor's Suggestion Detail Callout */}
-        <div className="bg-purple-50/80 rounded-2xl p-3 border border-purple-100 flex items-start gap-2.5">
-          <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-700">
-            <span className="font-bold text-purple-900 block mb-0.5">
-              {isHindi ? "AI स्टोर डॉक्टर डायग्नोसिस:" : "AI Store Doctor Diagnosis:"}
-            </span>
-            <p className="leading-relaxed text-slate-600">{doctorDiagnosis}</p>
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 5. LIST OF MODULES TO BE DONE TODAY (DOCTOR'S SUGGESTION)  */}
-        {/* ========================================================= */}
-        <div id="prescribed-modules-section" className="space-y-3 pt-1">
+        <div className="pt-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
-                <BookOpen className="w-3.5 h-3.5" />
-              </div>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">
-                {isHindi ? "आज के निर्धारित मॉड्यूल (डॉक्टर सुझाव)" : "Today's Modules (Doctor's Suggestion)"}
+            <div>
+              <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#7025fb]" />
+                <span>
+                  {isHindi ? "लक्ष्य तक पहुंचने के 5 कार्य" : "5 Steps to Reach Your Target"}
+                </span>
               </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                {isHindi
+                  ? "प्रत्येक कार्ड पर टैप करके कारण (Why), निर्देश (What) व वीडियो देखें"
+                  : "Tap any card to view Why it was assigned, What to do & Video"}
+              </p>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-              {todaysPrescribedModules.length} {isHindi ? "मॉड्यूल" : "Prescribed"}
+
+            <span className="text-xs font-black text-[#7025fb] bg-purple-50 border border-purple-200/80 px-2.5 py-1 rounded-full">
+              {completedCount} / 5
             </span>
           </div>
+        </div>
 
-          <div className="space-y-2.5">
-            {todaysPrescribedModules.map((mod) => {
-              const isDone = completedModuleIds[mod.id];
-              return (
+        {/* ========================================================= */}
+        {/* 5 CLEAR, EXPANDABLE ACTION CARDS                         */}
+        {/* ========================================================= */}
+        <div className="space-y-3">
+          {GOAL_CARDS.map((card) => {
+            const isExpanded = expandedCardId === card.id;
+            const isDone = completedCardIds[card.id];
+            const isPlayingThisVideo = playingVideoId === card.id;
+
+            return (
+              <div
+                key={card.id}
+                className={`rounded-3xl border transition-all duration-200 overflow-hidden shadow-2xs ${
+                  isDone
+                    ? "bg-emerald-50/40 border-emerald-300"
+                    : isExpanded
+                    ? "bg-white border-[#7025fb]/40 ring-2 ring-[#7025fb]/10 shadow-md"
+                    : "bg-white border-slate-200 hover:border-purple-300 hover:shadow-xs"
+                }`}
+              >
+                {/* ---------------- CARD HEADER (ALWAYS VISIBLE) ---------------- */}
                 <div
-                  key={mod.id}
-                  className={`p-3.5 rounded-2xl border transition-all ${
-                    isDone
-                      ? "bg-emerald-50/60 border-emerald-200"
-                      : "bg-white border-slate-200 hover:border-purple-300 shadow-2xs"
-                  }`}
+                  onClick={() => handleToggleCardExpansion(card.id)}
+                  className="p-4 cursor-pointer flex items-start justify-between gap-3 select-none"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-mono">
-                          {mod.code}
-                        </span>
-                        <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {mod.durationMinutes} min
-                        </span>
-                        {isDone && (
-                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            {isHindi ? "पूर्ण" : "Completed"}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-snug">
-                        {isHindi ? mod.titleHi : mod.title}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 line-clamp-2">
-                        {isHindi ? mod.descriptionHi : mod.description}
-                      </p>
-                      {/* Doctor's justification tag */}
-                      <div className="pt-1 flex items-center gap-1 text-[10px] font-semibold text-violet-700">
-                        <Stethoscope className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{isHindi ? mod.rxReasonHi : mod.rxReason}</span>
-                      </div>
-                    </div>
-
-                    {/* Interactive Start / Complete Button */}
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {/* Completion Checkbox Button */}
                     <button
                       type="button"
-                      onClick={() => handleToggleModule(mod.id)}
-                      className={`shrink-0 px-3 py-1.5 rounded-xl font-black text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 ${
+                      onClick={(e) => handleToggleCardDone(card.id, e)}
+                      className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${
                         isDone
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                          : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-sm"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "border-2 border-slate-300 hover:border-[#7025fb] text-transparent hover:text-purple-300"
                       }`}
-                    >
-                      {isDone ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          <span>{isHindi ? "हो गया" : "Done"}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3 h-3 fill-white" />
-                          <span>{isHindi ? "शुरू करें" : "Start"}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 6. TODAY'S FLOOR TASKS (PRACTICAL & ACTIONABLE)           */}
-        {/* ========================================================= */}
-        <div className="space-y-3 pt-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                <ListTodo className="w-3.5 h-3.5" />
-              </div>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">
-                {isHindi ? "आज के फ्लोर कार्य (Tasks)" : "Today's Prescribed Tasks"}
-              </h2>
-            </div>
-            <span className="text-[10px] font-bold text-slate-500">
-              {Object.values(completedTaskIds).filter(Boolean).length} / {todaysTasks.length} {isHindi ? "पूरे हुए" : "Done"}
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {todaysTasks.map((task) => {
-              const isChecked = completedTaskIds[task.id];
-              return (
-                <div
-                  key={task.id}
-                  onClick={() => handleToggleTask(task.id)}
-                  className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer select-none active:scale-98 ${
-                    isChecked
-                      ? "bg-emerald-50/70 border-emerald-200 text-slate-800"
-                      : "bg-white border-slate-200 hover:border-slate-300 text-slate-800 shadow-2xs"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      type="button"
-                      aria-label="Toggle task"
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${
-                        isChecked
-                          ? "bg-emerald-600 text-white"
-                          : "border-2 border-slate-300 text-transparent hover:border-slate-400"
-                      }`}
+                      aria-label="Toggle Complete"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </button>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-bold leading-snug ${isChecked ? "line-through text-slate-400" : "text-slate-800"}`}>
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium mt-0.5">
-                        <span className="font-semibold text-purple-700">{task.category}</span>
-                        <span>•</span>
-                        <span>⏱️ {task.duration}</span>
+
+                    {/* Title and High-level Summary */}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-[#7025fb] font-mono">
+                          STEP {card.stepNumber}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {isHindi ? card.tagHi : card.tag}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {card.duration}
+                        </span>
+                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                          +{card.readinessPoints}%
+                        </span>
                       </div>
+
+                      <h3
+                        className={`text-sm font-black leading-snug tracking-tight ${
+                          isDone ? "line-through text-slate-400" : "text-slate-900"
+                        }`}
+                      >
+                        {isHindi ? card.titleHi : card.title}
+                      </h3>
+
+                      {/* Clean 1-line Why & What preview when collapsed */}
+                      {!isExpanded && (
+                        <p className="text-[11px] text-slate-500 line-clamp-1 pt-0.5">
+                          <span className="font-bold text-purple-800">
+                            {isHindi ? "कारण: " : "Why: "}
+                          </span>
+                          {isHindi ? card.whyTextHi : card.whyText}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <span className="text-xs font-black shrink-0 text-slate-400">
-                    {isChecked ? "✓" : "+2%"}
-                  </span>
+                  {/* Expand / Collapse Chevron */}
+                  <div className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 shrink-0 transition-colors">
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-purple-700" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* ---------------- EXPANDED DETAILS (WHY, WHAT, VIDEO) ---------------- */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3.5 bg-gradient-to-b from-slate-50/50 to-white animate-in fade-in duration-200">
+                    {/* BOX 1: WHY IS THIS TASK GIVEN TO ME? */}
+                    <div className="p-3 rounded-2xl bg-purple-50/70 border border-purple-100 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-black text-[#7025fb]">
+                        <Info className="w-4 h-4 shrink-0" />
+                        <span className="uppercase tracking-wide text-[11px]">
+                          {isHindi ? "यह कार्य मुझे क्यों दिया गया है? (WHY)" : "WHY THIS IS ASSIGNED TO YOU"}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed font-medium pl-5">
+                        {isHindi ? card.whyTextHi : card.whyText}
+                      </p>
+                    </div>
+
+                    {/* BOX 2: WHAT DO I HAVE TO DO? */}
+                    <div className="p-3 rounded-2xl bg-amber-50/60 border border-amber-100 text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-black text-amber-900">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="uppercase tracking-wide text-[11px]">
+                          {isHindi ? "मुझे क्या करना है? (WHAT TO DO)" : "WHAT YOU NEED TO DO"}
+                        </span>
+                      </div>
+                      <p className="text-slate-800 font-bold pl-5 leading-snug">
+                        {isHindi ? card.whatTextHi : card.whatText}
+                      </p>
+
+                      {/* Action Steps Bullets */}
+                      <div className="pl-5 pt-1 space-y-1.5">
+                        {card.actionBullets.map((bullet, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-[11px] text-slate-700">
+                            <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-900 font-black flex items-center justify-center shrink-0 text-[10px] mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <span className="leading-snug">
+                              {isHindi ? bullet.hi : bullet.en}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* BOX 3: VIDEO PLAYER & DEMO DEMONSTRATION */}
+                    {card.videoTitle && (
+                      <div className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-900 text-white">
+                        {/* Video Screen / Simulation */}
+                        <div className="relative aspect-video w-full overflow-hidden flex items-center justify-center bg-black">
+                          <img
+                            src={card.videoThumbnailUrl}
+                            alt={card.videoTitle}
+                            className={`w-full h-full object-cover transition-opacity duration-300 ${
+                              isPlayingThisVideo ? "opacity-60" : "opacity-80"
+                            }`}
+                            referrerPolicy="no-referrer"
+                          />
+
+                          {/* Overlay Gradient */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+
+                          {/* Top video bar */}
+                          <div className="absolute top-2.5 left-3 right-3 flex items-center justify-between text-[10px] text-white/90 z-10">
+                            <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs font-mono font-bold flex items-center gap-1">
+                              <Video className="w-3 h-3 text-purple-400" />
+                              <span>{card.videoDuration}</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-[#7025fb] font-black text-[9px] uppercase tracking-wider">
+                              DEMO VIDEO
+                            </span>
+                          </div>
+
+                          {/* Play / Pause Interactive Button */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPlayingVideoId((prev) => (prev === card.id ? null : card.id))
+                            }
+                            className="w-13 h-13 rounded-full bg-white/90 hover:bg-white text-[#7025fb] shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 cursor-pointer z-10"
+                            aria-label="Play video"
+                          >
+                            {isPlayingThisVideo ? (
+                              <Pause className="w-6 h-6 fill-current" />
+                            ) : (
+                              <Play className="w-6 h-6 fill-current translate-x-0.5" />
+                            )}
+                          </button>
+
+                          {/* Video progress indicator simulation when playing */}
+                          {isPlayingThisVideo && (
+                            <div className="absolute bottom-2 left-3 right-3 flex items-center gap-2 text-[10px] text-white/80 z-10">
+                              <span className="font-mono">1:12</span>
+                              <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-amber-400 rounded-full w-[55%] animate-pulse" />
+                              </div>
+                              <span className="font-mono">{card.videoDuration}</span>
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <Maximize2 className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Video Footer & Key Tips */}
+                        <div className="p-3 bg-slate-900 border-t border-white/10 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-white">
+                              {isHindi ? card.videoTitleHi : card.videoTitle}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPlayingVideoId((prev) => (prev === card.id ? null : card.id))
+                              }
+                              className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                            >
+                              {isPlayingThisVideo
+                                ? isHindi
+                                  ? "रोकें"
+                                  : "Pause"
+                                : isHindi
+                                ? "वीडियो चलाएं"
+                                : "Play Video"}
+                            </button>
+                          </div>
+
+                          {/* Key Takeaways */}
+                          <div className="space-y-1 text-[11px] text-slate-300">
+                            {card.videoTips.map((tip, idx) => (
+                              <div key={idx} className="flex items-start gap-1.5">
+                                <span className="text-amber-400">•</span>
+                                <span>{isHindi ? tip.hi : tip.en}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SPECIAL ACTION 1: CALL BUDDY VIKRAM */}
+                    {card.isSpecialAction === "buddy_call" && (
+                      <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                            V
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-indigo-950">
+                              {isHindi ? "सीनियर बडी विक्रम से संपर्क करें" : "Connect with Buddy Vikram"}
+                            </div>
+                            <p className="text-[10px] text-indigo-600 font-medium">
+                              {isHindi ? "ज़ोन A बे #2 पर उपलब्ध" : "Available at Zone A Bay #2"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenBuddy) onOpenBuddy();
+                            else if (onSelectSection) onSelectSection("buddy");
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{isHindi ? "कॉल / चैट" : "Call / Chat"}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* SPECIAL ACTION 2: 30-SECOND VOICE REFLECTION */}
+                    {card.isSpecialAction === "voice_checkin" && (
+                      <div className="p-3 rounded-2xl bg-purple-50 border border-purple-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                            <Mic className="w-3.5 h-3.5 text-[#7025fb]" />
+                            <span>{isHindi ? "30 सेकंड वॉयस रिकॉर्डिंग" : "30-Sec Voice Check-in"}</span>
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            {voiceSubmitted
+                              ? isHindi
+                                ? "✓ सबमिट हुआ"
+                                : "✓ Submitted"
+                              : voiceRecording
+                              ? "🔴 Recording..."
+                              : "Tap to record"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!voiceRecording) {
+                                setVoiceRecording(true);
+                                setTimeout(() => {
+                                  setVoiceRecording(false);
+                                  setVoiceSubmitted(true);
+                                  handleToggleCardDone(card.id);
+                                }, 3000);
+                              }
+                            }}
+                            className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                              voiceSubmitted
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : voiceRecording
+                                ? "bg-red-500 text-white animate-pulse"
+                                : "bg-[#7025fb] hover:bg-[#601ee0] text-white shadow-xs"
+                            }`}
+                          >
+                            <Mic className="w-3.5 h-3.5" />
+                            <span>
+                              {voiceSubmitted
+                                ? isHindi
+                                  ? "वॉयस नोट भेजा गया (+2% सुरक्षित)"
+                                  : "Voice Note Recorded (+2% Locked)"
+                                : voiceRecording
+                                ? isHindi
+                                  ? "रिकॉर्ड हो रहा है (3s)..."
+                                  : "Recording 3s sample..."
+                                : isHindi
+                                ? "वॉयस संदेश बोलें"
+                                : "Record 30s Reflection"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* COMPLETE & CLAIM POINTS BUTTON */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleCardDone(card.id, e)}
+                        className={`w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
+                          isDone
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                            : "bg-[#7025fb] hover:bg-[#601ee0] text-white shadow-md shadow-purple-600/25"
+                        }`}
+                      >
+                        {isDone ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                            <span>
+                              {isHindi
+                                ? `कार्य पूर्ण (+${card.readinessPoints}% रेडीनेस अर्जित)`
+                                : `Step ${card.stepNumber} Done (+${card.readinessPoints}% Added)`}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              {isHindi
+                                ? `कार्य पूरा करें व +${card.readinessPoints}% अंक लें`
+                                : `Mark Step ${card.stepNumber} Complete & Claim +${card.readinessPoints}%`}
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* ========================================================= */}
-        {/* 7. BOTTOM ORANGE PRIMARY CTA (MATCHING 'SET TEMPERATURE')  */}
-        {/* ========================================================= */}
-        <div className="pt-3">
-          <button
-            id="landing-start-drill-cta"
-            type="button"
-            onClick={handleStartDrill}
-            className={`w-full py-4 px-6 rounded-2xl font-black text-base uppercase tracking-wider shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
-              drillStarted
-                ? "bg-emerald-500 text-white shadow-emerald-500/30"
-                : "bg-gradient-to-r from-[#FF7A00] to-[#FF5500] hover:from-[#FF8C1A] hover:to-[#FF661A] text-white shadow-orange-500/30"
-            }`}
-          >
-            {drillStarted ? (
-              <>
-                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                <span>{isHindi ? "ड्रिल शुरू हुई! प्रगति जुड़ी" : "Drill Active! +2% Boost Added"}</span>
-              </>
-            ) : (
-              <>
-                <span>{isHindi ? "आज की ट्रेनिंग शुरू करें" : "START TODAY'S DRILL"}</span>
-                <ArrowRight className="w-5 h-5 stroke-[2.5]" />
-              </>
-            )}
-          </button>
-        </div>
+        {/* BOTTOM CELEBRATION SUMMARY */}
+        {completedCount >= 5 && (
+          <div className="p-4 rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg space-y-2 animate-in fade-in duration-300">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-200 shrink-0" />
+              <h3 className="font-black text-sm uppercase tracking-wide">
+                {isHindi ? "बधाई! आज के सभी 5 कार्य पूरे हुए" : "All 5 Target Steps Complete!"}
+              </h3>
+            </div>
+            <p className="text-xs text-emerald-100 leading-relaxed font-medium">
+              {isHindi
+                ? "आपका करियर रेडीनेस स्कोर 85% के बेंचमार्क को छू चुका है। आप अगली शिफ्ट के लिए पूर्ण रूप से तैयार हैं।"
+                : "You have completed all prescribed modules, routes, and drills for Day 3. Your Career Readiness score is at target!"}
+            </p>
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-full py-2.5 rounded-xl bg-white text-emerald-900 font-black text-xs hover:bg-emerald-50 active:scale-95 transition-all cursor-pointer shadow-sm"
+            >
+              {isHindi ? "होम डैशबोर्ड पर वापस जाएं" : "Return to Home Dashboard"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

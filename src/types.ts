@@ -1,3 +1,9 @@
+import type {
+  MilestoneStanding,
+  RampUpPlanState,
+  MilestoneEvaluationRecord,
+} from "./models/milestones";
+
 export type NewHireStatus = "Doing well" | "Needs attention" | "At risk";
 
 export type SignalCategory =
@@ -351,6 +357,7 @@ export interface ActionOutcome {
   subsequentPickRate?: number;
   subsequentAccuracy?: number;
   evaluatedAt?: string;
+  milestoneImpact?: string;
 }
 
 export interface DayRecord {
@@ -364,6 +371,8 @@ export interface DayRecord {
   actionOutcome?: ActionOutcome;
   statusAtEnd: NewHireStatus;
   statusReason: string;
+  milestoneImpact?: string;
+  milestoneStanding?: MilestoneStanding;
 }
 
 export interface ModuleActivity {
@@ -416,6 +425,10 @@ export interface NewHire {
   role?: string;                              // Alias for roleTitle
   capabilities?: Record<number, CapabilityState>; // Ledger of all 20 capabilities
   daysHistory: DayRecord[];
+  currentMilestone?: number;
+  milestoneStanding?: MilestoneStanding;
+  rampUpPlan?: RampUpPlanState;
+  milestoneHistory?: MilestoneEvaluationRecord[];
 }
 
 export interface OrganizationSummary {
@@ -479,3 +492,32 @@ export interface SnapshotEvidenceItem {
   comparisonToPrevious?: string;
   direction?: "supporting" | "conflicting" | "neutral";
 }
+
+// ==========================================
+// Milestone & Gate Model (Ideal Skill Path)
+// ==========================================
+export type {
+  GateSeverity,
+  GateStatus,
+  MilestoneStanding,
+  EvidenceSufficiency,
+  RampUpTreatmentType,
+  RampUpPlanState,
+  MilestoneEvaluationRecord,
+  MilestoneCoordinationDecision,
+  RequiredCapabilityRequirement,
+  MilestonePerformanceRequirement,
+  IdealMilestoneDefinition,
+  CapabilityGapItem,
+  MetricGapItem,
+  MilestoneComparisonResult,
+} from "./models/milestones";
+
+export {
+  IDEAL_SKILL_PATH_MILESTONES,
+  getMilestoneForDay,
+  getAllMilestones,
+  getPrerequisiteMilestones,
+  getRelevantMilestoneForDay,
+  compareLearnerToMilestone,
+} from "./models/milestones";

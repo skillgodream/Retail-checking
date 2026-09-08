@@ -24,6 +24,7 @@ import {
   X,
   Clock,
   ThumbsUp,
+  Milestone,
 } from "lucide-react";
 
 interface ManagerViewProps {
@@ -34,6 +35,7 @@ interface ManagerViewProps {
   onManagerSignalSubmitted: (hireId: string, signal: ManagerSignal) => void;
   onWorkSignalUpdated: (hireId: string, workSignal: WorkSignal) => void;
   onActionOutcomeRecorded: (hireId: string, outcome: ActionOutcome) => void;
+  onOpenSkillJourney?: () => void;
 }
 
 export const ManagerView: React.FC<ManagerViewProps> = ({
@@ -44,6 +46,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
   onManagerSignalSubmitted,
   onWorkSignalUpdated,
   onActionOutcomeRecorded,
+  onOpenSkillJourney,
 }) => {
   const activeHire = newHires.find((h) => h.id === activeHireId) || newHires[0];
 
@@ -194,12 +197,26 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
           </p>
         </div>
 
-        {/* Quick Triage Status Capsule */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-slate-200/90 shadow-2xs text-xs font-bold">
-          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-            {needsAttentionCount} Needs Help
-          </span>
+        {/* Quick Actions & Triage Status Capsule */}
+        <div className="flex items-center gap-1.5">
+          {onOpenSkillJourney && (
+            <button
+              id="manager-skill-journey-btn"
+              onClick={onOpenSkillJourney}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-bold cursor-pointer transition-all active:scale-95 shadow-2xs"
+              title="View 10-Day Skill Journey"
+            >
+              <Milestone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">10-Day</span> Journey
+            </button>
+          )}
+
+          <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-slate-200/90 shadow-2xs text-xs font-bold">
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              {needsAttentionCount} Needs Help
+            </span>
+          </div>
         </div>
       </div>
 

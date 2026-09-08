@@ -48,6 +48,7 @@ import {
   MoreHorizontal,
   ChevronRight,
   Heart,
+  Milestone,
 } from "lucide-react";
 import { ActiveTab } from "./Header";
 
@@ -541,10 +542,26 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
               className="absolute -bottom-16 left-1/3 w-72 h-72 rounded-full bg-[#00D4FF]/45 blur-3xl pointer-events-none animate-orb-3"
               aria-hidden="true"
             />
-            {/* Top Bar: Welcome {Name}! and Hamburger Menu */}
+            {/* Top Bar: 10-Day Journey Icon, Title, and Hamburger Menu */}
             <div className="flex items-center justify-between relative pt-1">
-              {/* Left spacer for centering title */}
-              <div className="w-8" aria-hidden="true" />
+              {/* Direct 10-Day Skill Journey Icon Button on Home Page */}
+              {onSelectTab ? (
+                <button
+                  id="hero-skill-journey-icon-btn"
+                  type="button"
+                  onClick={() => onSelectTab("skill_journey")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-sm group"
+                  title={isHindi ? "10-दिवसीय स्किल जर्नी देखें" : "View 10-Day Skill Journey"}
+                  aria-label="10-Day Skill Journey"
+                >
+                  <Milestone className="w-4 h-4 text-white group-hover:scale-110 transition-transform stroke-[2.2]" />
+                  <span className="text-[11px] font-bold text-white tracking-tight hidden xs:inline">
+                    10D Journey
+                  </span>
+                </button>
+              ) : (
+                <div className="w-8" aria-hidden="true" />
+              )}
 
               {/* Title: Daily Shift Operations */}
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-center">
@@ -585,6 +602,23 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                     </div>
                     {onSelectTab && (
                       <>
+                        <button
+                          id="hero-menu-skill-journey-btn"
+                          type="button"
+                          onClick={() => {
+                            onSelectTab("skill_journey");
+                            setIsHeroMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 flex items-center justify-between cursor-pointer border-b border-slate-100"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Milestone className="w-3.5 h-3.5 text-violet-600 stroke-[2.2]" />
+                            <span>10-Day Skill Journey</span>
+                          </span>
+                          <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
+                            Roadmap
+                          </span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -1000,6 +1034,39 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                 <div className="w-9 h-9 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-xs flex items-center justify-center text-white border border-white/25 transition-all group-hover:translate-x-0.5">
                   <ChevronRight className="w-5 h-5 stroke-[2.5]" />
                 </div>
+              </div>
+            </div>
+
+            {/* 5. 10-DAY SKILL JOURNEY CARD: DIRECT HOME ACCESS WITH MILESTONE ICON */}
+            <div
+              id="home-skill-journey-card"
+              onClick={() => onSelectTab?.("skill_journey")}
+              className="bg-white rounded-[24px] p-4 border border-violet-100/90 shadow-sm hover:border-violet-200 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group active:scale-98 relative overflow-hidden"
+            >
+              <div className="flex items-center gap-3.5 relative z-10 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-violet-600/20 group-hover:scale-105 transition-transform">
+                  <Milestone className="w-6 h-6 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                      {isHindi ? "10-दिन स्किल जर्नी" : "10-Day Skill Journey"}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-50 text-violet-700 border border-violet-100">
+                      {isHindi ? "रोडमैप" : "Roadmap"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
+                    {isHindi
+                      ? "कहाँ होना चाहिए vs वर्तमान स्तर"
+                      : "Where learner should be vs where they are"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 text-violet-700 group-hover:bg-violet-100 text-xs font-bold shrink-0 transition-colors">
+                <span className="hidden xs:inline">{isHindi ? "देखें" : "View"}</span>
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </div>
 

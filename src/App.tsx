@@ -3,6 +3,7 @@ import { Header, ActiveTab } from "./components/Header";
 import { NewHireView } from "./components/NewHireView";
 import { ManagerView } from "./components/ManagerView";
 import { OrganizationView } from "./components/OrganizationView";
+import { TenDaySkillJourneyView } from "./components/TenDaySkillJourneyView";
 import { OnboardingView } from "./components/OnboardingView";
 import { LoopInspectorModal } from "./components/LoopInspectorModal";
 import { TelemetryDialModal } from "./components/TelemetryDialModal";
@@ -76,6 +77,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("new_hire");
+  const [previousTab, setPreviousTab] = useState<ActiveTab>("new_hire");
   const [activeHireId, setActiveHireId] = useState<string>(() => {
     try {
       if (typeof window !== "undefined" && window.localStorage) {
@@ -431,7 +433,12 @@ export default function App() {
                   onOpenLoopModal={() => setIsLoopModalOpen(true)}
                   onOpenFeedModal={() => setIsFeedModalOpen(true)}
                   onOpenTelemetryDial={() => setIsTelemetryModalOpen(true)}
-                  onSelectTab={setActiveTab}
+                  onSelectTab={(tab) => {
+                    if (tab === "skill_journey") {
+                      setPreviousTab("new_hire");
+                    }
+                    setActiveTab(tab);
+                  }}
                   doingWellCount={doingWellCount}
                   needsAttentionCount={needsAttentionCount}
                   atRiskCount={atRiskCount}
@@ -447,6 +454,20 @@ export default function App() {
                   onManagerSignalSubmitted={handleManagerSignalSubmitted}
                   onWorkSignalUpdated={handleWorkSignalUpdated}
                   onActionOutcomeRecorded={handleActionOutcomeRecorded}
+                  onOpenSkillJourney={() => {
+                    setPreviousTab("manager");
+                    setActiveTab("skill_journey");
+                  }}
+                />
+              )}
+
+              {activeTab === "skill_journey" && (
+                <TenDaySkillJourneyView
+                  newHires={newHires}
+                  activeHireId={activeHireId}
+                  onSelectHire={(id) => setActiveHireId(id)}
+                  currentDay={currentDay}
+                  onBackToManager={() => setActiveTab(previousTab === "skill_journey" ? "new_hire" : previousTab)}
                 />
               )}
 

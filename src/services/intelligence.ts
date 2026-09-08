@@ -19,6 +19,13 @@ import {
   SignalCategory,
   SnapshotEvidenceItem,
   SnapshotEvidenceCategory,
+  MilestoneCoordinationDecision,
+  RampUpPlanState,
+  MilestoneStanding,
+  EvidenceSufficiency,
+  RampUpTreatmentType,
+  getRelevantMilestoneForDay,
+  compareLearnerToMilestone,
 } from "../types";
 import { createDefaultCapabilitiesLedger } from "../data/seedData";
 
@@ -41,6 +48,9 @@ export interface PatternSynthesisResult {
   currentCapabilityId: number;
   adaptiveDecision: AdaptiveGearDecision;
   day10Evaluation?: Day10EvaluationResult;
+  milestoneEvaluation?: MilestoneCoordinationDecision;
+  rampUpPlan?: RampUpPlanState;
+  managerReporting?: string;
 }
 
 export interface LoopExecutionInput {
@@ -2171,6 +2181,135 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
     understoodRootCause: understood.rootCause,
   });
 
+  // 7. MILESTONE COMPARISON (Pure, read-only diagnostic input for Dean)
+  const relevantMilestone = getRelevantMilestoneForDay(input.dayNumber);
+  let milestoneCoordination: MilestoneCoordinationDecision | undefined = undefined;
+  let activeRampUp: RampUpPlanState | undefined = input.hire.rampUpPlan;
+
+  if (relevantMilestone) {
+    const comparisonHire: NewHire = {
+      ...input.hire,
+      status: checkResult.finalStatus,
+      capabilities: checkResult.updatedCapabilities,
+    };
+
+    const comparison = compareLearnerToMilestone(
+      comparisonHire,
+      relevantMilestone,
+      input.workSignal
+    );
+
+    const isEvidenceSufficient =
+      comparison.status !== "not_enough_evidence" &&
+      comparison.evidenceSufficiency !== "insufficient";
+
+    let standing: MilestoneStanding = "pending";
+    if (!isEvidenceSufficient) {
+      standing = "not_enough_evidence";
+    } else if (comparison.isMet) {
+      standing = input.dayNumber < relevantMilestone.day ? "ahead" : "reached";
+    } else if (input.dayNumber >= relevantMilestone.day) {
+      standing = "behind";
+    } else {
+      standing = "on_track";
+    }
+
+    // 8. DEAN: NEXT COORDINATION DECISION & DOCTOR 4 / RAMP-UP DETERMINATION
+    // Dean evaluates check outcome + milestone comparison + diagnosis
+    let milestoneImpact: string | undefined = undefined;
+
+    // Check / Recovery handling:
+    if (input.actionOutcome?.improved === "yes") {
+      // Learner recovered from previous intervention: remove unnecessary intervention & allow normal progression
+      if (activeRampUp && activeRampUp.isActive) {
+        activeRampUp = {
+          ...activeRampUp,
+          isActive: false,
+          clearedAtDay: input.dayNumber,
+        };
+      }
+      milestoneImpact = `Recovered capability on floor; restored alignment to Day ${relevantMilestone.day} milestone.`;
+      input.actionOutcome.milestoneImpact = milestoneImpact;
+    } else if (input.actionOutcome?.improved === "no") {
+      // Previous intervention failed: do not blindly repeat; reconsider diagnosis & strategy
+      milestoneImpact = `Gap persists despite intervention; Dean reconsiders intervention strategy for Day ${relevantMilestone.day} alignment.`;
+      input.actionOutcome.milestoneImpact = milestoneImpact;
+    }
+
+    // If learner is behind milestone: Dean creates a temporary ramp-up plan
+    // Chosen based on Doctor 3's diagnosis (minimum effective intervention, NOT automatic training!)
+    if (standing === "behind" && isEvidenceSufficient) {
+      let rampUpTreatment: RampUpTreatmentType = "guided_practice";
+      if (understood.rootCause === "tool_hardware") {
+        rampUpTreatment = "tool_environment_support";
+      } else if (
+        understood.rootCause === "environment_spatial" ||
+        understood.rootCause === "environment_bottleneck"
+      ) {
+        rampUpTreatment = "process_clarification";
+      } else if (understood.rootCause === "communication_confidence") {
+        rampUpTreatment = "communication_support";
+      } else if (understood.rootCause === "chronic_dependency") {
+        rampUpTreatment = "buddy_support";
+      } else if (understood.rootCause === "safety_blocker") {
+        rampUpTreatment = "supervisor_support";
+      } else if (
+        understood.rootCause === "prerequisite_gap" ||
+        understood.rootCause === "variant_quality"
+      ) {
+        rampUpTreatment = "refresh_capability";
+      } else if (understood.rootCause === "capability_practice") {
+        rampUpTreatment = "floor_practice";
+      }
+
+      activeRampUp = {
+        isActive: true,
+        targetMilestoneDay: relevantMilestone.day,
+        reason: `Learner behind Day ${relevantMilestone.day} milestone on ${comparison.capabilityGaps.filter((c) => !c.isMet).map((c) => c.capabilityName).join(", ") || "metrics"}.`,
+        treatmentType: rampUpTreatment,
+        focusCapabilityId: decided.targetCapId,
+        description: checkResult.action.smallestPracticalStep || checkResult.action.description,
+        recommendedActor: checkResult.action.targetActor,
+        expectedDurationShifts: 1,
+        createdAtDay: input.dayNumber,
+      };
+    }
+
+    // 9. DOCTOR 6: REPORTING
+    // Generate clean operational reporting for managers without exposing internal architecture
+    let managerSummary = "";
+    if (standing === "not_enough_evidence") {
+      managerSummary = "Not enough evidence — continue observation";
+    } else if (standing === "reached" || standing === "ahead") {
+      managerSummary = `Reached Day ${relevantMilestone.day} capability milestone`;
+    } else if (standing === "behind") {
+      if (
+        understood.rootCause === "environment_spatial" ||
+        understood.rootCause === "environment_bottleneck" ||
+        understood.rootCause === "tool_hardware"
+      ) {
+        managerSummary = "Performance gap appears related to process/navigation rather than knowledge";
+      } else {
+        managerSummary = `Behind Day ${relevantMilestone.day} milestone — targeted support recommended`;
+      }
+    } else {
+      managerSummary = `On track for Day ${relevantMilestone.day} milestone`;
+    }
+
+    milestoneCoordination = {
+      currentMilestone: relevantMilestone.day,
+      milestoneName: relevantMilestone.name,
+      standing,
+      evidenceSufficiency: isEvidenceSufficient ? "sufficient" : "insufficient",
+      comparison,
+      capabilityGaps: comparison.capabilityGaps,
+      metricGaps: comparison.metricGaps,
+      rampUpState: activeRampUp,
+      managerSummary,
+      milestoneImpact,
+    };
+  }
+
   const overallReadinessScore = assessReadiness(checkResult.updatedCapabilities, input.hire);
 
   const day10Evaluation = evaluateDay10Outcome(
@@ -2184,6 +2323,14 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
     input.managerSignal
   );
 
+  // If Day 10 and mandatory training incomplete: Manager reporting reflects blocker explicitly
+  let managerReporting = milestoneCoordination?.managerSummary;
+  if (input.dayNumber === 10 && !day10Evaluation.isReady) {
+    if ((input.hire.modulesCompleted ?? 0) < 10) {
+      managerReporting = "Mandatory training incomplete — readiness remains blocked";
+    }
+  }
+
   return {
     pattern: actionPackage.pattern,
     action: checkResult.action,
@@ -2194,6 +2341,9 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
     currentCapabilityId: decided.targetCapId,
     adaptiveDecision: decided.decisionType,
     day10Evaluation,
+    milestoneEvaluation: milestoneCoordination,
+    rampUpPlan: activeRampUp,
+    managerReporting,
   };
 }
 

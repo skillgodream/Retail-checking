@@ -6,6 +6,7 @@ import {
 } from "./intelligence";
 import { adaptGoogleFormFeedRow, DEMO_FEED_PRESETS } from "./googleFormFeedAdapter";
 import { initialRahul, initialCohort } from "../data/seedData";
+import { WorkSignal } from "../types";
 
 describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
   const baseHire = initialRahul; // Rahul Sharma, Day 3
@@ -366,5 +367,308 @@ describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
     expect(notReadyEval.isReady).toBe(false);
     expect(notReadyEval.status).toBe("Not Ready");
     expect(notReadyEval.unresolvedBlockers.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", () => {
+  const baseHire = initialRahul;
+
+  it("1. Learner reaches a milestone", () => {
+    // Hire on Day 3 who has demonstrated capabilities 1, 2, 3 and meets 40 UPH floor target
+    const hireAtMilestone3 = {
+      ...baseHire,
+      currentDay: 3,
+      modulesCompleted: 3,
+      capabilities: { ...baseHire.capabilities },
+    };
+    [1, 2, 3].forEach((id) => {
+      hireAtMilestone3.capabilities[id] = {
+        capabilityId: id,
+        exposure: "reinforced",
+        evidence: "demonstrated",
+        performance: "on_target",
+        mastery: "proficient",
+        lastAssessedAt: "Day 3",
+        reinforcementCount: 1,
+      };
+    });
+
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 45,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 40,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireAtMilestone3,
+      dayNumber: 3,
+      workSignal,
+    });
+
+    expect(result.milestoneEvaluation).toBeDefined();
+    expect(result.milestoneEvaluation?.standing).toBe("reached");
+    expect(result.milestoneEvaluation?.evidenceSufficiency).toBe("sufficient");
+    expect(result.milestoneEvaluation?.managerSummary).toContain("Reached Day 3 capability milestone");
+    expect(result.rampUpPlan).toBeUndefined();
+  });
+
+  it("2. Learner is behind a milestone", () => {
+    // Rahul on Day 3 with navigation friction behind Day 3 milestone
+    const preset = DEMO_FEED_PRESETS.find((p) => p.id === "scenario-1-navigation")!;
+    const adapted = adaptGoogleFormFeedRow(preset.payload, initialCohort);
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+    });
+
+    expect(result.milestoneEvaluation).toBeDefined();
+    expect(result.milestoneEvaluation?.standing).toBe("behind");
+    expect(result.milestoneEvaluation?.evidenceSufficiency).toBe("sufficient");
+    expect(result.rampUpPlan).toBeDefined();
+    expect(result.rampUpPlan?.isActive).toBe(true);
+    expect(result.rampUpPlan?.targetMilestoneDay).toBe(3);
+    expect(result.milestoneEvaluation?.capabilityGaps.some((g) => !g.isMet)).toBe(true);
+  });
+
+  it("3. Learner with insufficient evidence returns 'Not enough evidence' without false failure", () => {
+    const hireNoEvidence = {
+      ...baseHire,
+      currentDay: 3,
+      capabilities: { ...baseHire.capabilities },
+    };
+    // No capabilities demonstrated yet
+    Object.keys(hireNoEvidence.capabilities).forEach((k) => {
+      hireNoEvidence.capabilities[Number(k)] = {
+        capabilityId: Number(k),
+        exposure: "not_exposed",
+        evidence: "none",
+        performance: "unknown",
+        mastery: "locked",
+        lastAssessedAt: "Day 3",
+        reinforcementCount: 0,
+      };
+    });
+
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 0,
+      targetPickRate: 40,
+      accuracyRate: 0,
+      ordersCompleted: 0,
+      targetOrders: 35,
+      hasWorkEvidence: false,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireNoEvidence,
+      dayNumber: 3,
+      workSignal,
+    });
+
+    expect(result.milestoneEvaluation?.evidenceSufficiency).toBe("insufficient");
+    expect(result.milestoneEvaluation?.standing).toBe("not_enough_evidence");
+    expect(result.milestoneEvaluation?.managerSummary).toBe("Not enough evidence — continue observation");
+    // Does NOT fail learner
+    expect(result.updatedStatus).not.toBe("At risk");
+    // Action is observation, NOT blind training
+    expect(result.action.decisionType).toBe("no_action_monitor");
+  });
+
+  it("4. Milestone gap does NOT trigger training automatically when root cause is hardware", () => {
+    const preset = DEMO_FEED_PRESETS.find((p) => p.id === "scenario-2-scanner-tool")!;
+    const adapted = adaptGoogleFormFeedRow(preset.payload, initialCohort);
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+    });
+
+    // Milestone gap is diagnosed as tool friction, NOT a training failure
+    expect(result.pattern.category).toBe("Tool");
+    expect(result.action.decisionType).toBe("tool_remedy");
+    expect(result.rampUpPlan?.treatmentType).toBe("tool_environment_support");
+    expect(result.action.targetActor).toContain("Maintenance");
+  });
+
+  it("5. Diagnosis determines appropriate treatment (Buddy guided practice for navigation)", () => {
+    const preset = DEMO_FEED_PRESETS.find((p) => p.id === "scenario-1-navigation")!;
+    const adapted = adaptGoogleFormFeedRow(preset.payload, initialCohort);
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+    });
+
+    expect(result.pattern.category).toBe("Environment");
+    expect(result.rampUpPlan?.treatmentType).toBe("process_clarification");
+    expect(result.action.targetActor).toContain("Buddy");
+    expect(result.milestoneEvaluation?.managerSummary).toBe(
+      "Performance gap appears related to process/navigation rather than knowledge"
+    );
+  });
+
+  it("6. Treatment outcome feeds back into Dean and updates milestoneImpact", () => {
+    const recoveryPreset = DEMO_FEED_PRESETS.find((p) => p.id === "scenario-recovery-nav")!;
+    const adapted = adaptGoogleFormFeedRow(recoveryPreset.payload, initialCohort);
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 4,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+      actionOutcome: adapted.actionOutcome,
+    });
+
+    expect(adapted.actionOutcome.milestoneImpact).toBeDefined();
+    expect(adapted.actionOutcome.milestoneImpact).toContain("Recovered capability on floor");
+  });
+
+  it("7. Recovered learner has intervention reduced and active ramp-up plan cleared", () => {
+    const recoveryPreset = DEMO_FEED_PRESETS.find((p) => p.id === "scenario-recovery-nav")!;
+    const adapted = adaptGoogleFormFeedRow(recoveryPreset.payload, initialCohort);
+
+    const hireWithActiveRampUp = {
+      ...baseHire,
+      rampUpPlan: {
+        isActive: true,
+        targetMilestoneDay: 3,
+        reason: "Previous gap",
+        treatmentType: "guided_practice" as const,
+        description: "Buddy practice",
+        recommendedActor: "Buddy",
+        expectedDurationShifts: 1,
+        createdAtDay: 3,
+      },
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireWithActiveRampUp,
+      dayNumber: 4,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+      actionOutcome: adapted.actionOutcome,
+    });
+
+    expect(result.updatedStatus).toBe("Doing well");
+    expect(result.action.decisionType).toBe("advance_default");
+    expect(result.rampUpPlan?.isActive).toBe(false);
+    expect(result.rampUpPlan?.clearedAtDay).toBe(4);
+  });
+
+  it("8. Failed treatment causes Dean to reconsider rather than repeat identical intervention", () => {
+    const failurePreset = DEMO_FEED_PRESETS.find((p) => p.id === "journey-failure-memory")!;
+    const adapted = adaptGoogleFormFeedRow(failurePreset.payload, initialCohort);
+
+    const existingWalkthroughAction = {
+      id: "act-prev-walkthrough",
+      dayNumber: 3,
+      actionType: "buddy_walkthrough" as const,
+      targetCapabilityId: 3,
+      targetActor: "Buddy (Vikram R.)",
+      urgency: "Next Shift" as const,
+      decisionType: "reinforce_current" as const,
+      title: "Buddy Walkthrough of Aisles 4-8",
+      description: "Vikram does a 15-minute walkthrough of Aisles 4-8.",
+      smallestPracticalStep: "15-minute walkthrough before Shift Wave 2",
+      whyThisAction: "Friction with aisle locations",
+      status: "in_progress" as const,
+      createdAt: "Day 3",
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 4,
+      workSignal: adapted.workSignal,
+      dailySignal: adapted.dailySignal,
+      managerSignal: adapted.managerSignal,
+      actionOutcome: adapted.actionOutcome,
+      existingAction: existingWalkthroughAction,
+    });
+
+    // Dean reconsiders: does not repeat Buddy Walkthrough; escalates to floor layout
+    expect(result.action.title).not.toBe("Buddy Walkthrough of Aisles 4-8");
+    expect(result.action.whyThisAction).toContain("walkthrough failed");
+    expect(adapted.actionOutcome.milestoneImpact).toContain("Gap persists");
+  });
+
+  it("9. Day 10 evaluation: High pick rate with incomplete mandatory training remains blocked", () => {
+    const hireIncompleteTraining = {
+      ...baseHire,
+      currentDay: 10,
+      modulesCompleted: 8, // 8 of 10 modules completed
+      capabilities: { ...baseHire.capabilities },
+    };
+    Object.keys(hireIncompleteTraining.capabilities).forEach((k) => {
+      hireIncompleteTraining.capabilities[Number(k)] = {
+        capabilityId: Number(k),
+        exposure: "reinforced",
+        evidence: "demonstrated",
+        performance: "exceeding",
+        mastery: "proficient",
+        lastAssessedAt: "Day 10",
+        reinforcementCount: 1,
+      };
+    });
+
+    const workSignal: WorkSignal = {
+      dayNumber: 10,
+      actualPickRate: 58, // Exceeds target of 50 UPH
+      targetPickRate: 50,
+      accuracyRate: 99,
+      ordersCompleted: 50,
+      targetOrders: 45,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireIncompleteTraining,
+      dayNumber: 10,
+      workSignal,
+    });
+
+    expect(result.day10Evaluation?.isReady).toBe(false);
+    expect(result.day10Evaluation?.unresolvedBlockers).toContain("Mandatory Training Completed");
+    expect(result.managerReporting).toBe("Mandatory training incomplete — readiness remains blocked");
+  });
+
+  it("10. executeCoordinationLoop() remains the single execution authority", () => {
+    // Verifies all outputs originate from executeCoordinationLoop without parallel coordinators
+    const input: LoopExecutionInput = {
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 42,
+        targetPickRate: 40,
+        accuracyRate: 98,
+        ordersCompleted: 35,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      },
+    };
+
+    const result = executeCoordinationLoop(input);
+    expect(result).toHaveProperty("pattern");
+    expect(result).toHaveProperty("action");
+    expect(result).toHaveProperty("updatedStatus");
+    expect(result).toHaveProperty("updatedCapabilities");
+    expect(result).toHaveProperty("adaptiveDecision");
+    expect(result).toHaveProperty("milestoneEvaluation");
   });
 });

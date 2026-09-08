@@ -55,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           id="nav-tab-manager"
           onClick={() => setActiveTab("manager")}
           className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all cursor-pointer relative active:scale-90 ${
-            activeTab === "manager"
+            activeTab === "manager" || activeTab === "skill_journey"
               ? "text-violet-600 font-black"
               : "text-slate-400 hover:text-slate-800"
           }`}
@@ -67,7 +67,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 {needsAttentionCount + atRiskCount}
               </span>
             )}
-            {activeTab === "manager" && (
+            {(activeTab === "manager" || activeTab === "skill_journey") && (
               <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500" />
             )}
           </div>

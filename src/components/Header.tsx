@@ -12,9 +12,10 @@ import {
   Languages,
   UserCheck,
   FileSpreadsheet,
+  Milestone,
 } from "lucide-react";
 import { Logo } from "./Logo";
-export type ActiveTab = "new_hire" | "manager" | "organization";
+export type ActiveTab = "new_hire" | "manager" | "organization" | "skill_journey";
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -91,7 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
     setIsEyeMenuOpen(false);
   };
 
-  const isBackstageActive = activeTab === "manager" || activeTab === "organization";
+  const isBackstageActive =
+    activeTab === "manager" || activeTab === "organization" || activeTab === "skill_journey";
 
   // When on the learner's Home screen, allow the Hero Banner to be completely full-bleed without a header bar
   if (isHomeScreen && activeTab === "new_hire") {
@@ -111,6 +113,10 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-base font-black text-slate-950 tracking-tight flex items-center gap-1">
                     <span>{isHindi ? "लर्नर डैशबोर्ड" : "Learner Companion"}</span>
                   </span>
+                ) : activeTab === "skill_journey" ? (
+                  <span className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                    10-Day Skill Journey
+                  </span>
                 ) : (
                   <span className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                     {activeTab === "manager" ? "Supervisor Triage" : "Store Operations"}
@@ -122,6 +128,8 @@ export const Header: React.FC<HeaderProps> = ({
                   ? isHindi
                     ? "डार्क स्टोर #104"
                     : "Dark Store #104"
+                  : activeTab === "skill_journey"
+                  ? "Where learner should be vs where they are"
                   : activeTab === "manager"
                   ? "Floor Triage • Dark Store #104"
                   : "Store Operations • Dark Store #104"}
@@ -266,7 +274,37 @@ export const Header: React.FC<HeaderProps> = ({
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
 
-                    {/* Item 3: Loop Flow */}
+                    {/* Item 3: 10-Day Skill Journey */}
+                    <button
+                      id="eye-menu-skill-journey"
+                      onClick={() => handleSelectTab("skill_journey")}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        activeTab === "skill_journey"
+                          ? "bg-violet-50 text-violet-700"
+                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`p-1.5 rounded-lg ${
+                            activeTab === "skill_journey"
+                              ? "bg-violet-600 text-white"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          <Milestone className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </div>
+                        <div className="text-left">
+                          <div className="leading-tight">10-Day Skill Journey</div>
+                          <div className="text-[10px] text-slate-400 font-normal">
+                            Where learner should be vs is
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+
+                    {/* Item 4: Loop Flow */}
                     <button
                       id="eye-menu-loop-flow"
                       onClick={handleSelectLoop}

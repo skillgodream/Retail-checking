@@ -45,6 +45,7 @@ import { NewHire, TrainingModule, ModuleActivity, DARK_STORE_CAPABILITIES } from
 import { MANDATORY_TRAINING_MODULES } from "../data/modulesData";
 import { ActiveTab } from "./Header";
 import { LearnerSection } from "./FloatingGlassMenu";
+import { determineAdaptiveCurrentPlan } from "../services/intelligence";
 
 interface ModulesViewProps {
   newHire: NewHire;
@@ -75,6 +76,8 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
     module: TrainingModule;
     activity: ModuleActivity;
   } | null>(null);
+
+  const adaptivePlan = determineAdaptiveCurrentPlan(newHire);
 
   const [quizAnswerSelected, setQuizAnswerSelected] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
@@ -1025,6 +1028,62 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
               </span>
             </div>
 
+            {/* Dean Authoritative Progression Gate Notice if held/blocked */}
+            {activeDetailModule.dayNumber === modulesCompletedCount + 1 &&
+              (adaptivePlan.progressionGate.gateStatus === "held" ||
+                adaptivePlan.progressionGate.gateStatus === "blocked") && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 space-y-2.5 text-amber-950 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>
+                        DEAN PROGRESSION GATE •{" "}
+                        {adaptivePlan.progressionGate.gateStatus === "blocked"
+                          ? "BLOCKED"
+                          : "HELD"}
+                      </span>
+                    </span>
+                    <span className="text-[10px] font-black text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded-md uppercase">
+                      Pit-Stop Calibration Active
+                    </span>
+                  </div>
+
+                  <p className="text-xs font-bold text-amber-900 leading-snug">
+                    {adaptivePlan.progressionGate.holdReason ||
+                      "Prerequisite capability demonstration required before module certification."}
+                  </p>
+
+                  {/* Productive Floor Work */}
+                  <div className="p-2.5 rounded-xl bg-white/90 border border-amber-200/80 text-[11px] space-y-1">
+                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>ACTIVE PRODUCTIVE WORK:</span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed">
+                      {adaptivePlan.productiveWork.safeWorkTitle} ({adaptivePlan.productiveWork.zoneOrAisles}) —{" "}
+                      {adaptivePlan.productiveWork.whySafe}
+                    </p>
+                  </div>
+
+                  {/* Floor Development Drill */}
+                  <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200/80 text-[11px] space-y-1 text-purple-950">
+                    <div className="flex items-center gap-1.5 text-purple-800 font-bold">
+                      <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span>DEVELOPMENT FOCUS ({adaptivePlan.development.actor}):</span>
+                    </div>
+                    <p className="text-purple-900 leading-relaxed">
+                      {adaptivePlan.development.actionDescription} ({adaptivePlan.development.durationMinutes} min)
+                    </p>
+                  </div>
+
+                  {/* Unlock Requirement */}
+                  <div className="p-2 rounded-xl bg-amber-100/60 border border-amber-200 text-[11px] space-y-0.5">
+                    <span className="font-bold text-amber-900 block">Unlock Criteria:</span>
+                    <span className="text-amber-800">{adaptivePlan.progressionGate.unlockCriteria}</span>
+                  </div>
+                </div>
+              )}
+
             {/* 5 Activities */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400 px-0.5">
@@ -1093,24 +1152,76 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
               })}
             </div>
 
-            {/* Complete Module Button if Current */}
+            {/* Complete Module Button or Prerequisite Clear Action if Current */}
             {activeDetailModule.dayNumber === modulesCompletedCount + 1 && (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleCompleteActivity(activeDetailModule.id, activeDetailModule.activities[4].id);
-                    setActiveDetailModule(null);
-                  }}
-                  className="w-full py-3 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 text-white rounded-2xl text-xs font-bold shadow-md hover:opacity-95 cursor-pointer active:scale-98 transition-all flex items-center justify-center gap-2"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>
-                    {isHindi
-                      ? `डे ${activeDetailModule.dayNumber} मॉड्यूल पूरा मार्क करें`
-                      : `Complete Day ${activeDetailModule.dayNumber} Module`}
-                  </span>
-                </button>
+              <div className="pt-2 space-y-2">
+                {adaptivePlan.progressionGate.gateStatus === "held" ||
+                adaptivePlan.progressionGate.gateStatus === "blocked" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Mark prerequisite practice cleared on floor
+                        const capId = adaptivePlan.development.focusCapabilityId || 2;
+                        const updatedCapabilities = { ...(newHire.capabilities || {}) };
+                        if (updatedCapabilities[capId]) {
+                          updatedCapabilities[capId] = {
+                            ...updatedCapabilities[capId],
+                            evidence: "demonstrated",
+                            mastery: "in_progress",
+                            performance: "on_target",
+                            reinforcementCount:
+                              (updatedCapabilities[capId].reinforcementCount || 0) + 1,
+                            lastAssessedAt: `Floor Practice with ${adaptivePlan.development.actor}`,
+                          };
+                        }
+                        const updatedHire: NewHire = {
+                          ...newHire,
+                          capabilities: updatedCapabilities,
+                        };
+                        if (onUpdateHire) {
+                          onUpdateHire(updatedHire);
+                        }
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-2xl text-xs font-bold shadow-md hover:opacity-95 cursor-pointer active:scale-98 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Zap className="w-4 h-4" />
+                      <span>
+                        Complete Prerequisite Drill with {adaptivePlan.development.actor}
+                      </span>
+                    </button>
+
+                    {onSelectTab && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDetailModule(null);
+                          onSelectTab("skill_journey");
+                        }}
+                        className="w-full py-2.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-2xl text-xs font-bold border border-purple-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>View Pit-Stop Calibration on Adaptive Journey</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCompleteActivity(activeDetailModule.id, activeDetailModule.activities[4].id);
+                      setActiveDetailModule(null);
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 text-white rounded-2xl text-xs font-bold shadow-md hover:opacity-95 cursor-pointer active:scale-98 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>
+                      {isHindi
+                        ? `डे ${activeDetailModule.dayNumber} मॉड्यूल पूरा मार्क करें`
+                        : `Complete Day ${activeDetailModule.dayNumber} Module`}
+                    </span>
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -24,8 +24,11 @@ import {
   MilestoneStanding,
   EvidenceSufficiency,
   RampUpTreatmentType,
+  AdaptiveCurrentPlan,
+  PitStopDecisionRecord,
   getRelevantMilestoneForDay,
   compareLearnerToMilestone,
+  evaluatePitStopDecision,
 } from "../types";
 import { createDefaultCapabilitiesLedger } from "../data/seedData";
 
@@ -50,6 +53,7 @@ export interface PatternSynthesisResult {
   day10Evaluation?: Day10EvaluationResult;
   milestoneEvaluation?: MilestoneCoordinationDecision;
   rampUpPlan?: RampUpPlanState;
+  adaptiveCurrentPlan?: AdaptiveCurrentPlan;
   managerReporting?: string;
 }
 
@@ -1100,7 +1104,7 @@ function observe(input: LoopExecutionInput): ObservedSignals {
     ...(hire.capabilities || createDefaultCapabilitiesLedger()),
   };
 
-  const textContent = `${dailySignal?.issue || ""} ${dailySignal?.rawText || ""} ${dailySignal?.category || ""}`.toLowerCase();
+  const textContent = `${dailySignal?.issue || ""} ${dailySignal?.rawText || ""} ${dailySignal?.summary || ""} ${dailySignal?.category || ""}`.toLowerCase();
   const managerNotes = (managerSignal?.notes || "").toLowerCase();
 
   const externalBottleneckText = `${workSignal?.externalBottleneck || ""} ${dailySignal?.rawText || ""} ${managerNotes}`.toLowerCase();
@@ -1136,11 +1140,17 @@ function observe(input: LoopExecutionInput): ObservedSignals {
     textContent.includes("need buddy with me on every single order") ||
     textContent.includes("stay with me while i pick") ||
     textContent.includes("stay with me") ||
+    textContent.includes("ask my buddy") ||
+    textContent.includes("asks buddy") ||
+    textContent.includes("ask buddy") ||
     managerNotes.includes("continuous buddy support") ||
     managerNotes.includes("help dependency") ||
     managerNotes.includes("unable to pick solo") ||
     managerNotes.includes("needs independent picking") ||
-    managerNotes.includes("stops picking completely when buddy is not");
+    managerNotes.includes("stops picking completely when buddy is not") ||
+    managerNotes.includes("asks buddy") ||
+    managerNotes.includes("ask buddy") ||
+    (managerSignal?.issueCategory as string) === "Dependency";
 
   const workerChronicHelpDependency =
     isExplicitDependency ||
@@ -1172,11 +1182,16 @@ function observe(input: LoopExecutionInput): ObservedSignals {
       textContent.includes("bluetooth") ||
       textContent.includes("battery") ||
       textContent.includes("hardware") ||
+      textContent.includes("touchscreen") ||
+      textContent.includes("freezing") ||
       (textContent.includes("scanner") &&
         (textContent.includes("disconnect") ||
           textContent.includes("died") ||
           textContent.includes("won't scan") ||
           textContent.includes("broken") ||
+          textContent.includes("sticking") ||
+          textContent.includes("unresponsive") ||
+          textContent.includes("laser") ||
           textContent.includes("lens"))) ||
       managerSignal?.issueCategory === "Tool");
 
@@ -1432,13 +1447,24 @@ function understand(
   }
 
   // 3. Critical safety blocker (explicit safety hazard signal or PPE violation)
-  const textRaw = `${observed.dailySignal?.rawText || ""} ${observed.dailySignal?.issue || ""}`.toLowerCase();
+  const textRaw = `${observed.dailySignal?.rawText || ""} ${observed.dailySignal?.issue || ""} ${observed.dailySignal?.summary || ""}`.toLowerCase();
   const mgrNotes = (observed.managerSignal?.notes || "").toLowerCase();
   const isSafetyRiskReported =
     !textRaw.includes("question") &&
     !textRaw.includes("where are") &&
-    ((textRaw.includes("safety") && (textRaw.includes("hazard") || textRaw.includes("injury") || textRaw.includes("blocked exit") || textRaw.includes("violation") || textRaw.includes("without") || textRaw.includes("risk"))) ||
+    ((observed.dailySignal?.category as string) === "Safety" ||
+      ((textRaw.includes("safety") || textRaw.includes("ppe") || textRaw.includes("hazard")) &&
+        (textRaw.includes("hazard") ||
+          textRaw.includes("injury") ||
+          textRaw.includes("blocked exit") ||
+          textRaw.includes("violation") ||
+          textRaw.includes("breach") ||
+          textRaw.includes("ladder") ||
+          textRaw.includes("protocol") ||
+          textRaw.includes("without") ||
+          textRaw.includes("risk"))) ||
       textRaw.includes("safety violation") ||
+      textRaw.includes("safety protocol") ||
       textRaw.includes("without ppe") ||
       textRaw.includes("no ppe") ||
       textRaw.includes("missing ppe") ||
@@ -2037,51 +2063,69 @@ function check(stageInput: CheckStageInput): {
     const outcomePickRate = actionOutcome.subsequentPickRate ?? observed.currentPickRate;
     const outcomeAccuracy = actionOutcome.subsequentAccuracy ?? observed.accuracy;
 
-    const isImproved =
-      actionOutcome.improved === "yes" ||
-      (outcomePickRate >= observed.targetPickRate - 4 && outcomeAccuracy >= 95);
+    const isExplicitYes = actionOutcome.improved === "yes";
+    const isExplicitNo = actionOutcome.improved === "no";
+    const isExplicitPartial = actionOutcome.improved === "partial";
+    const isInsufficient = !observed.hasWorkEvidence;
 
-    const isPartial =
-      actionOutcome.improved === "partial" ||
-      (observed.previousPickRate !== undefined && outcomePickRate > observed.previousPickRate);
-
-    if (isImproved) {
-      finalStatus = "Doing well";
-      finalStatusReason = `Intervention succeeded. Pick rate recovered to ${outcomePickRate}/hr with ${outcomeAccuracy}% accuracy.`;
-      action.status = "completed";
-
-      capState.exposure = "reinforced";
-      capState.evidence = "demonstrated";
-      capState.performance =
-        outcomePickRate > observed.targetPickRate
-          ? "exceeding"
-          : outcomePickRate === observed.targetPickRate
-          ? "on_target"
-          : "below_target";
-      capState.mastery = "proficient";
-      capState.notes = `Intervention closed: ${actionOutcome.notes || "Standard met on floor"}`;
-    } else if (isPartial) {
-      finalStatus = "Needs attention";
-      finalStatusReason = `Pick rate partially improved to ${outcomePickRate}/hr; continued buddy practice on Capability ${targetCapId} recommended.`;
-      action.status = "completed";
-
-      capState.exposure = "reinforced";
-      capState.evidence = "emerging";
-      capState.performance = "below_target";
-      capState.mastery = "in_progress";
-      capState.reinforcementCount += 1;
-      capState.notes = `Partial recovery (${outcomePickRate}/hr). Continued practice required.`;
+    if (isInsufficient) {
+      finalStatus = interimStatus;
+      finalStatusReason = "Insufficient work telemetry to evaluate intervention outcome. Continued floor observation recommended.";
+      action.status = "in_progress";
+      capState.notes = "Intervention evaluation pending floor telemetry.";
     } else {
-      finalStatus = "At risk";
-      finalStatusReason = `Performance stalled at ${outcomePickRate}/hr despite intervention; reassessing root cause for next shift.`;
-      action.status = "completed";
+      const isImproved =
+        isExplicitYes ||
+        (!isExplicitNo &&
+          !isExplicitPartial &&
+          outcomePickRate >= observed.targetPickRate - 4 &&
+          outcomeAccuracy >= 95);
 
-      capState.exposure = "reinforced";
-      capState.evidence = "inconsistent";
-      capState.performance = "below_target";
-      capState.mastery = "in_progress";
-      capState.reinforcementCount += 1;
-      capState.notes = "Intervention failed to close gap. Must reassess approach.";
+      const isPartial =
+        isExplicitPartial ||
+        (!isExplicitNo &&
+          !isImproved &&
+          observed.previousPickRate !== undefined &&
+          outcomePickRate > observed.previousPickRate);
+
+      if (isImproved) {
+        finalStatus = "Doing well";
+        finalStatusReason = `Intervention succeeded. Pick rate recovered to ${outcomePickRate}/hr with ${outcomeAccuracy}% accuracy.`;
+        action.status = "completed";
+
+        capState.exposure = "reinforced";
+        capState.evidence = "demonstrated";
+        capState.performance =
+          outcomePickRate > observed.targetPickRate
+            ? "exceeding"
+            : outcomePickRate === observed.targetPickRate
+            ? "on_target"
+            : "below_target";
+        capState.mastery = "proficient";
+        capState.notes = `Intervention closed: ${actionOutcome.notes || "Standard met on floor"}`;
+      } else if (isPartial) {
+        finalStatus = "Needs attention";
+        finalStatusReason = `Pick rate partially improved to ${outcomePickRate}/hr; continued buddy practice on Capability ${targetCapId} recommended.`;
+        action.status = "completed";
+
+        capState.exposure = "reinforced";
+        capState.evidence = "emerging";
+        capState.performance = "below_target";
+        capState.mastery = "in_progress";
+        capState.reinforcementCount += 1;
+        capState.notes = `Partial recovery (${outcomePickRate}/hr). Continued practice required.`;
+      } else {
+        finalStatus = "At risk";
+        finalStatusReason = `Performance stalled at ${outcomePickRate}/hr despite intervention; reassessing root cause for next shift.`;
+        action.status = "completed";
+
+        capState.exposure = "reinforced";
+        capState.evidence = "inconsistent";
+        capState.performance = "below_target";
+        capState.mastery = "in_progress";
+        capState.reinforcementCount += 1;
+        capState.notes = "Intervention failed to close gap. Must reassess approach.";
+      }
     }
   } else {
     if (decisionType === "reinforce_current" || decisionType === "return_prerequisite") {
@@ -2230,9 +2274,18 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
       }
       milestoneImpact = `Recovered capability on floor; restored alignment to Day ${relevantMilestone.day} milestone.`;
       input.actionOutcome.milestoneImpact = milestoneImpact;
+    } else if (input.actionOutcome?.improved === "partial") {
+      milestoneImpact = `Partial improvement observed; learner continues targeted practice toward Day ${relevantMilestone.day} milestone standard.`;
+      input.actionOutcome.milestoneImpact = milestoneImpact;
     } else if (input.actionOutcome?.improved === "no") {
       // Previous intervention failed: do not blindly repeat; reconsider diagnosis & strategy
       milestoneImpact = `Gap persists despite intervention; Dean reconsiders intervention strategy for Day ${relevantMilestone.day} alignment.`;
+      input.actionOutcome.milestoneImpact = milestoneImpact;
+    } else if (
+      input.actionOutcome &&
+      (!isEvidenceSufficient || !input.workSignal?.hasWorkEvidence)
+    ) {
+      milestoneImpact = `Insufficient telemetry to verify outcome; continuing observation without unneeded intervention.`;
       input.actionOutcome.milestoneImpact = milestoneImpact;
     }
 
@@ -2331,6 +2384,27 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
     }
   }
 
+  // 10. ADAPTIVE PROGRESSION & PIT-STOP 3D PLAN SYNTHESIS
+  // Dean evaluates the 3-dimensional Current Plan (Productive Work, Development, Progression Gate)
+  const pitStopDay = input.dayNumber <= 3 ? 3 : input.dayNumber <= 5 ? 5 : input.dayNumber <= 7 ? 7 : input.dayNumber <= 9 ? 9 : 10;
+  const pitStopDecision = evaluatePitStopDecision(
+    {
+      ...input.hire,
+      status: checkResult.finalStatus,
+      capabilities: checkResult.updatedCapabilities,
+      rampUpPlan: activeRampUp,
+    },
+    pitStopDay,
+    input.workSignal,
+    input.actionOutcome
+      ? {
+          action: checkResult.action.description,
+          outcome: input.actionOutcome.improved,
+          impact: input.actionOutcome.milestoneImpact || "Intervention outcome evaluated.",
+        }
+      : undefined
+  );
+
   return {
     pattern: actionPackage.pattern,
     action: checkResult.action,
@@ -2343,8 +2417,63 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
     day10Evaluation,
     milestoneEvaluation: milestoneCoordination,
     rampUpPlan: activeRampUp,
+    adaptiveCurrentPlan: pitStopDecision.currentPlan,
     managerReporting,
   };
+}
+
+/**
+ * Authoritatively derives the 3-Dimensional Adaptive Current Plan for any learner at any shift day.
+ * Pure diagnostic projection from Dean + Six Doctors evidence.
+ */
+export function determineAdaptiveCurrentPlan(
+  hire: NewHire,
+  latestWorkSignal?: WorkSignal,
+  latestOutcome?: ActionOutcome
+): AdaptiveCurrentPlan {
+  const currentWork =
+    latestWorkSignal ||
+    hire.daysHistory[hire.daysHistory.length - 1]?.workSignal || {
+      dayNumber: hire.currentDay,
+      actualPickRate: 35,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 40,
+      targetOrders: 60,
+      unitsPicked: 140,
+      hoursWorked: 4,
+      shortsCount: 0,
+      mispicksCount: 1,
+      helpRequestsCount: 1,
+      speedZone: "orange" as const,
+      hasWorkEvidence: true,
+    };
+
+  const pitStopDay =
+    hire.currentDay <= 3
+      ? 3
+      : hire.currentDay <= 5
+      ? 5
+      : hire.currentDay <= 7
+      ? 7
+      : hire.currentDay <= 9
+      ? 9
+      : 10;
+
+  const pitStop = evaluatePitStopDecision(
+    hire,
+    pitStopDay,
+    currentWork,
+    latestOutcome
+      ? {
+          action: latestOutcome.notes || "Previous floor intervention",
+          outcome: latestOutcome.improved,
+          impact: latestOutcome.milestoneImpact || "Outcome evaluated",
+        }
+      : undefined
+  );
+
+  return pitStop.currentPlan;
 }
 
 /**

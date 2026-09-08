@@ -142,6 +142,102 @@ export interface MetricGapItem {
 }
 
 /**
+ * 3-Dimensional Adaptive Current Plan:
+ * A. Productive Work - What safe, useful work the learner can perform right now.
+ * B. Development - What capability/knowledge/process needs targeted improvement.
+ * C. Progression Gate - What must become true before the next ideal step is released.
+ */
+export interface ProductiveWorkPlan {
+  safeWorkTitle: string;
+  safeWorkDescription: string;
+  targetPacing: number;
+  zoneOrAisles: string;
+  whySafe: string;
+}
+
+export interface DevelopmentPlan {
+  focusCapabilityId: number;
+  focusCapabilityName: string;
+  developmentType: string;
+  actionDescription: string;
+  actor: string;
+  durationMinutes: number;
+}
+
+export interface ProgressionGatePlan {
+  idealStep: string;
+  gateStatus:
+    | "released"
+    | "on_track"
+    | "held"
+    | "blocked"
+    | "ahead"
+    | "recovered"
+    | "insufficient_evidence"
+    | "not_enough_evidence"
+    | "pending";
+  nextMilestoneTarget?: number;
+  blockedStepName?: string;
+  holdReason?: string;
+  unlockCriteria: string;
+  isUnlocked: boolean;
+  previousInterventionOutcome?: "yes" | "partial" | "no" | "insufficient_evidence";
+}
+
+export interface AdaptiveCurrentPlan {
+  productiveWork: ProductiveWorkPlan;
+  development: DevelopmentPlan;
+  progressionGate: ProgressionGatePlan;
+  deanRationale: string;
+}
+
+export interface ManagerMotivationPlan {
+  heading: string;
+  message: string;
+  coachingPrompt: string;
+}
+
+export interface PitStopDecisionRecord {
+  milestoneDay: number;
+  milestoneName: string;
+  shortTitle: string;
+  idealPlan: {
+    expectedCapabilities: string[];
+    floorPerformance: string;
+    milestoneName: string;
+  };
+  actualState: {
+    demonstratedCapabilities: string[];
+    floorMetrics: string;
+    safetyStatus: string;
+  };
+  gap: {
+    summary: string;
+    hasGaps: boolean;
+    capabilityGaps: CapabilityGapItem[];
+    metricGaps: MetricGapItem[];
+  };
+  currentPlan: AdaptiveCurrentPlan;
+  progressionStatus:
+    | "released"
+    | "on_track"
+    | "held"
+    | "blocked"
+    | "ahead"
+    | "recovered"
+    | "not_enough_evidence"
+    | "pending";
+  deanReasoning: string;
+  previousOutcome?: {
+    action: string;
+    outcome: "yes" | "partial" | "no";
+    impact: string;
+  };
+  nextDecision: string;
+  managerMotivation: ManagerMotivationPlan;
+}
+
+/**
  * Read-only comparison result between an actual learner state and an ideal milestone.
  * IMPORTANT: This represents ideal vs. actual evidence comparison.
  * It does NOT decide treatment and does NOT override Dean or execute coordination loops.
@@ -581,7 +677,7 @@ export function compareLearnerToMilestone(
     (c) => c && c.evidence !== "none"
   );
 
-  if ((hasExplicitNoWork || hasZeroOrdersWithoutProof) && !hasAnyCapabilityEvidence) {
+  if (hasExplicitNoWork || (hasZeroOrdersWithoutProof && !hasAnyCapabilityEvidence)) {
     return {
       milestoneDay: milestone.day,
       milestoneName: milestone.name,
@@ -765,5 +861,271 @@ export function compareLearnerToMilestone(
     metricGaps,
     unmetPrerequisites,
     safetyCleared,
+  };
+}
+
+/**
+ * Authoritatively evaluates a specific Pit-Stop Checkpoint (Day 3, 5, 7, 9, 10).
+ * Generates the full 3-Dimensional Current Plan:
+ * 1. Productive Work: Safe, useful floor contribution right now.
+ * 2. Development: Minimum effective floor intervention/practice.
+ * 3. Progression Gate: Hold vs Release with explicit unlock criteria.
+ */
+export function evaluatePitStopDecision(
+  hire: NewHire,
+  milestoneDay: number,
+  currentWork: WorkSignal,
+  previousOutcome?: {
+    action: string;
+    outcome: "yes" | "partial" | "no";
+    impact: string;
+  }
+): PitStopDecisionRecord {
+  const milestoneDef = getMilestoneForDay(milestoneDay) || IDEAL_SKILL_PATH_MILESTONES[0];
+  const comparison = compareLearnerToMilestone(hire, milestoneDef, currentWork);
+  const firstName = (hire.name || "Learner").split(" ")[0];
+  const capabilities = hire.capabilities || {};
+  const learnerDay = hire.currentDay;
+
+  const capGaps = comparison.capabilityGaps.filter((c) => !c.isMet);
+  const metricGaps = comparison.metricGaps.filter((m) => !m.isMet);
+  const hasGaps = capGaps.length > 0 || metricGaps.length > 0;
+  const isEvidenceSufficient = currentWork.hasWorkEvidence !== false;
+
+  // 1. Determine Progression Status
+  let progressionStatus: PitStopDecisionRecord["progressionStatus"] = "on_track";
+  let isUnlocked = false;
+  let holdReason: string | undefined = undefined;
+  let unlockCriteria = "";
+
+  if (!comparison.safetyCleared) {
+    progressionStatus = "blocked";
+    isUnlocked = false;
+    holdReason = "Unresolved safety violation or PPE non-compliance in live floor zone.";
+    unlockCriteria = "Complete 100% safety zone protocol walkthrough with Supervisor and clear floor sign-off.";
+  } else if (!isEvidenceSufficient) {
+    progressionStatus = "not_enough_evidence";
+    isUnlocked = false;
+    holdReason = "Insufficient floor telemetry to verify independent capability.";
+    unlockCriteria = "Complete at least 1 full picking shift wave to generate validated scanner telemetry.";
+  } else if (comparison.isMet) {
+    if (learnerDay < milestoneDay) {
+      progressionStatus = "ahead";
+      isUnlocked = true;
+      unlockCriteria = "Pacing and accuracy targets met early; cleared for accelerated module entry.";
+    } else {
+      progressionStatus = "released";
+      isUnlocked = true;
+      unlockCriteria = "All milestone capabilities and floor performance targets verified.";
+    }
+  } else if (previousOutcome?.outcome === "yes") {
+    progressionStatus = "recovered";
+    isUnlocked = true;
+    unlockCriteria = "Previous floor intervention succeeded; gate released for next operational progression.";
+  } else if (previousOutcome?.outcome === "partial") {
+    progressionStatus = "held";
+    isUnlocked = false;
+    holdReason = "Partial improvement observed; prerequisite capability needs further floor consolidation.";
+    unlockCriteria = `Demonstrate consistent ${capGaps[0]?.capabilityName || "target metric"} across 2 consecutive pick runs.`;
+  } else if (previousOutcome?.outcome === "no") {
+    progressionStatus = "held";
+    isUnlocked = false;
+    holdReason = "Previous intervention did not clear capability gap; Dean re-evaluates support strategy.";
+    unlockCriteria = "Supervisor 1-on-1 demonstration and verified solo pick run without errors.";
+  } else if (learnerDay >= milestoneDay) {
+    progressionStatus = "held";
+    isUnlocked = false;
+    holdReason = capGaps.length > 0
+      ? `Prerequisite ${capGaps[0].capabilityName} not yet demonstrated at required evidence standard.`
+      : `Floor performance pacing (${metricGaps[0]?.actual || currentWork.actualPickRate} UPH) below ${milestoneDef.shortTitle} threshold.`;
+    unlockCriteria = capGaps.length > 0
+      ? `Demonstrate '${capGaps[0].capabilityName}' on floor with 0 buddy escalations.`
+      : `Achieve target pick rate (${metricGaps[0]?.expected || 40} UPH) with 98%+ accuracy.`;
+  } else {
+    progressionStatus = "on_track";
+    isUnlocked = true;
+    unlockCriteria = `Maintain daily ramp trajectory toward Day ${milestoneDay} checkpoint standards.`;
+  }
+
+  // 2. Derive Productive Safe Work Plan (Learner is NEVER left idle!)
+  let safeWorkTitle = "Single-Order Ambient Picking (Aisles 1–3)";
+  let safeWorkDescription = "Assigned to low-velocity dry grocery aisles with familiar shelf layout and minimal variant complexity.";
+  let targetPacing = 35;
+  let zoneOrAisles = "Aisles 1–3 (Dry Grocery & Staples)";
+  let whySafe = "Utilizes demonstrated scanner aiming and basic bin navigation while location coordinates solidify.";
+
+  if (milestoneDay === 3) {
+    safeWorkTitle = "Single-Order Dry Picking in Aisles 1–3";
+    safeWorkDescription = "Focus on clean barcode scans and bin confirmation in primary dry aisles. Low SKU density.";
+    targetPacing = 35;
+    zoneOrAisles = "Aisles 1–3 (Snacks & Staples)";
+    whySafe = "No cold chain or fragile multi-item pack risks; protects order accuracy floor.";
+  } else if (milestoneDay === 5) {
+    if (progressionStatus === "held" || progressionStatus === "blocked") {
+      safeWorkTitle = "Standard Ambient Dry Picking (Aisles 1–5)";
+      safeWorkDescription = "Continue high-confidence ambient picks while prerequisite scanning/variant checks solidify.";
+      targetPacing = 40;
+      zoneOrAisles = "Aisles 1–5 (Ambient Packaged)";
+      whySafe = "Keeps learner productive on core picks without risk of cold chain delays or variant mismatches.";
+    } else {
+      safeWorkTitle = "Multi-Aisle Ambient & Chilled Order Picks";
+      safeWorkDescription = "Standard single & dual-item customer orders across ambient and chilled zones.";
+      targetPacing = 45;
+      zoneOrAisles = "Aisles 1–8 & Chilled Room Entry";
+      whySafe = "Demonstrated reliable coordinate navigation and cold chain entry protocols.";
+    }
+  } else if (milestoneDay === 7) {
+    if (progressionStatus === "held" || progressionStatus === "blocked") {
+      safeWorkTitle = "Standard Multi-Item Ambient Batch Picking";
+      safeWorkDescription = "Productive contribution picking ambient multi-item customer baskets while stock exception handling is reinforced.";
+      targetPacing = 48;
+      zoneOrAisles = "Aisles 1–8 (Ambient)";
+      whySafe = "Keeps pick volume high while complex stock variance drills occur in 10-min coaching bursts.";
+    } else {
+      safeWorkTitle = "Full-Store Multi-Zone Wave Picking";
+      safeWorkDescription = "Independent picking across ambient, chilled, and produce weigh-scale zones.";
+      targetPacing = 52;
+      zoneOrAisles = "All Store Zones (Ambient, Chilled, Produce)";
+      whySafe = "Multi-task capability and stock exception navigation validated on floor.";
+    }
+  } else if (milestoneDay === 9 || milestoneDay === 10) {
+    safeWorkTitle = "Solo High-Velocity Wave Picking";
+    safeWorkDescription = "Autonomous customer order picking across all store zones under SLA timer pacing.";
+    targetPacing = 58;
+    zoneOrAisles = "Store-wide Wave Dispatch";
+    whySafe = "Full operational independence and SLA pacing demonstrated.";
+  }
+
+  // 3. Derive Development Plan
+  let focusCapId = capGaps[0]?.capabilityId || 2;
+  let focusCapName = capGaps[0]?.capabilityName || "Scanner & Location Navigation";
+  let devType = "Targeted Floor Practice";
+  let actionDesc = `10-minute floor drill with Supervisor on ${focusCapName}.`;
+  let actor = "Supervisor Priya";
+  let durationMins = 10;
+
+  if (hire.rampUpPlan?.isActive) {
+    focusCapId = hire.rampUpPlan.focusCapabilityId || focusCapId;
+    devType = hire.rampUpPlan.treatmentType.replace(/_/g, " ");
+    actionDesc = hire.rampUpPlan.description;
+    actor = hire.rampUpPlan.recommendedActor || actor;
+  } else if (capGaps.length > 0) {
+    focusCapId = capGaps[0].capabilityId;
+    focusCapName = capGaps[0].capabilityName;
+    devType = "Prerequisite Recovery";
+    actionDesc = `10-minute floor walkthrough focusing specifically on ${focusCapName}.`;
+    actor = "Senior Buddy Amit";
+  } else if (metricGaps.length > 0) {
+    devType = "Pacing Rhythm Calibration";
+    actionDesc = `15-minute pacing shadowing run to observe ergonomic pick-to-tote motion.`;
+    actor = "Supervisor Priya";
+    durationMins = 15;
+  } else {
+    devType = "Autonomous Pacing Consolidation";
+    actionDesc = "Self-timed solo pick runs with post-shift accuracy verification.";
+    actor = "Independent Worker";
+    durationMins = 5;
+  }
+
+  // 4. Derive Dean Authoritative Rationale
+  let deanReasoning = "";
+  if (!isEvidenceSufficient) {
+    deanReasoning = "Dean withholds milestone progression judgment pending floor telemetry collection.";
+  } else if (comparison.isMet) {
+    deanReasoning = learnerDay < milestoneDay
+      ? `Dean confirms ${firstName} has demonstrated Day ${milestoneDay} capability standards ahead of schedule.`
+      : `Dean verifies ${firstName} has met all required competencies and metrics for Day ${milestoneDay} milestone.`;
+  } else if (!comparison.safetyCleared) {
+    deanReasoning = `Dean holds progression strictly on Safety Protocol (CAP-1). Mandatory compliance clearance required.`;
+  } else if (capGaps.length > 0) {
+    deanReasoning = `Dean identifies prerequisite gap in ${capGaps.map((c) => c.capabilityName).join(", ")}. Progression held; productive safe work assigned while targeted floor practice closes the gap.`;
+  } else if (metricGaps.length > 0) {
+    deanReasoning = `Dean detects floor metric variance (${metricGaps.map((m) => `${m.metricName}: ${m.actual} vs ${m.expected}`).join(", ")}). Progression held for pacing stabilization.`;
+  } else {
+    deanReasoning = `Dean monitors steady ramp trajectory toward Day ${milestoneDay} checkpoint.`;
+  }
+
+  // 5. Derive Manager Motivation Plan (F1 Pit Stop Model - Framing deviation as targeted calibration, NOT failure)
+  let heading = `Calibration for ${firstName}`;
+  let message = "";
+  let coachingPrompt = "";
+
+  if (progressionStatus === "ahead" || progressionStatus === "released" || progressionStatus === "recovered") {
+    heading = `Strong Forward Momentum for ${firstName}`;
+    message = `${firstName} has demonstrated solid capability on the floor. Target milestone standards are satisfied.`;
+    coachingPrompt = `"Great work on closing this checkpoint smoothly. You're demonstrating great pace and accuracy on the floor."`;
+  } else if (progressionStatus === "held") {
+    heading = `Targeted Pit-Stop Calibration for ${firstName}`;
+    message = `${firstName} is making productive contributions on safe picking tasks while we calibrate ${focusCapName}.`;
+    coachingPrompt = `"You're doing great on ambient picking! Let's spend 10 minutes together on ${focusCapName} so you can unlock the next module with confidence."`;
+  } else if (progressionStatus === "blocked") {
+    heading = `Safety First Protocol for ${firstName}`;
+    message = `Non-negotiable safety standards protect the team. Immediate 5-minute floor walkthrough required.`;
+    coachingPrompt = `"Safety is our top priority. Let's do a quick walkthrough of the zone safety rules before our next pick wave."`;
+  } else {
+    heading = `Telemetry Observation for ${firstName}`;
+    message = `Observing live floor telemetry to establish accurate baseline data.`;
+    coachingPrompt = `"Keep following the standard pick sequence. We're observing your initial rhythm today."`;
+  }
+
+  return {
+    milestoneDay,
+    milestoneName: milestoneDef.name,
+    shortTitle: milestoneDef.shortTitle,
+    idealPlan: {
+      expectedCapabilities: milestoneDef.expectedCapabilities,
+      floorPerformance: `Pick Rate: ${milestoneDef.performanceExpectations.minPickRate || 35}+ UPH, Accuracy: ${milestoneDef.performanceExpectations.minAccuracy || 95}%+`,
+      milestoneName: milestoneDef.name,
+    },
+    actualState: {
+      demonstratedCapabilities: Object.values(capabilities)
+        .filter((c) => c && (c.evidence === "demonstrated" || c.mastery === "proficient" || c.mastery === "mastered"))
+        .map((c) => DARK_STORE_CAPABILITIES.find((d) => d.id === c.capabilityId)?.name || `CAP-${c.capabilityId}`),
+      floorMetrics: `Pick Rate: ${currentWork.actualPickRate || 35} UPH, Accuracy: ${currentWork.accuracyRate || 98}%, Help: ${currentWork.helpRequestsCount ?? 0}/shift`,
+      safetyStatus: comparison.safetyCleared ? "Safety Cleared ✓" : "Unresolved Safety Issue ⚠",
+    },
+    gap: {
+      summary: comparison.summary,
+      hasGaps,
+      capabilityGaps: comparison.capabilityGaps,
+      metricGaps: comparison.metricGaps,
+    },
+    currentPlan: {
+      productiveWork: {
+        safeWorkTitle,
+        safeWorkDescription,
+        targetPacing,
+        zoneOrAisles,
+        whySafe,
+      },
+      development: {
+        focusCapabilityId: focusCapId,
+        focusCapabilityName: focusCapName,
+        developmentType: devType,
+        actionDescription: actionDesc,
+        actor,
+        durationMinutes: durationMins,
+      },
+      progressionGate: {
+        idealStep: `Day ${milestoneDay}: ${milestoneDef.shortTitle}`,
+        nextMilestoneTarget: milestoneDay,
+        gateStatus: progressionStatus,
+        blockedStepName: progressionStatus === "held" || progressionStatus === "blocked" ? `Day ${milestoneDay} Progression Step` : undefined,
+        holdReason,
+        unlockCriteria,
+        isUnlocked,
+        previousInterventionOutcome: previousOutcome?.outcome,
+      },
+      deanRationale: deanReasoning,
+    },
+    progressionStatus,
+    deanReasoning,
+    previousOutcome,
+    nextDecision: unlockCriteria,
+    managerMotivation: {
+      heading,
+      message,
+      coachingPrompt,
+    },
   };
 }

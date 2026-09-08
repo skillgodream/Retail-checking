@@ -511,6 +511,11 @@ export type {
   CapabilityGapItem,
   MetricGapItem,
   MilestoneComparisonResult,
+  ProductiveWorkPlan,
+  DevelopmentPlan,
+  ProgressionGatePlan,
+  AdaptiveCurrentPlan,
+  PitStopDecisionRecord,
 } from "./models/milestones";
 
 export {
@@ -520,4 +525,5 @@ export {
   getPrerequisiteMilestones,
   getRelevantMilestoneForDay,
   compareLearnerToMilestone,
+  evaluatePitStopDecision,
 } from "./models/milestones";

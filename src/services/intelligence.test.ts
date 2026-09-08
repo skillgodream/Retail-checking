@@ -6,7 +6,7 @@ import {
 } from "./intelligence";
 import { adaptGoogleFormFeedRow, DEMO_FEED_PRESETS } from "./googleFormFeedAdapter";
 import { initialRahul, initialCohort } from "../data/seedData";
-import { WorkSignal } from "../types";
+import { WorkSignal, ActionOutcome } from "../types";
 
 describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
   const baseHire = initialRahul; // Rahul Sharma, Day 3
@@ -571,6 +571,60 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
     expect(result.rampUpPlan?.clearedAtDay).toBe(4);
   });
 
+  it("7b. Partial improvement does NOT falsely mark full recovery and preserves targeted practice", () => {
+    const partialOutcome: ActionOutcome = {
+      id: "out-partial-01",
+      actionId: "act-nav-01",
+      dayNumber: 3,
+      performedBy: "Buddy (Vikram R.)",
+      performedAt: "Day 3 End of Shift",
+      improved: "partial" as const,
+      subsequentPickRate: 34,
+      subsequentAccuracy: 95,
+      notes: "Aisle finding improved slightly, but still lagging behind 40 UPH floor target.",
+    };
+
+    const hireWithActiveRampUp = {
+      ...baseHire,
+      currentDay: 3,
+      rampUpPlan: {
+        isActive: true,
+        targetMilestoneDay: 3,
+        reason: "Navigation friction",
+        treatmentType: "process_clarification" as const,
+        description: "Buddy walkthrough",
+        recommendedActor: "Buddy",
+        expectedDurationShifts: 1,
+        createdAtDay: 3,
+      },
+    };
+
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 34,
+      targetPickRate: 40,
+      accuracyRate: 95,
+      ordersCompleted: 26,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireWithActiveRampUp,
+      dayNumber: 3,
+      workSignal,
+      actionOutcome: partialOutcome,
+    });
+
+    // Dean must NOT falsely mark full recovery
+    expect(result.updatedStatus).toBe("Needs attention");
+    expect(result.updatedStatus).not.toBe("Doing well");
+    expect(result.rampUpPlan?.isActive).toBe(true); // Ramp up remains active
+    expect(result.updatedCapabilities[3].evidence).toBe("emerging");
+    expect(result.updatedCapabilities[3].mastery).toBe("in_progress");
+    expect(partialOutcome.milestoneImpact).toContain("Partial improvement observed");
+  });
+
   it("8. Failed treatment causes Dean to reconsider rather than repeat identical intervention", () => {
     const failurePreset = DEMO_FEED_PRESETS.find((p) => p.id === "journey-failure-memory")!;
     const adapted = adaptGoogleFormFeedRow(failurePreset.payload, initialCohort);
@@ -670,5 +724,615 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
     expect(result).toHaveProperty("updatedCapabilities");
     expect(result).toHaveProperty("adaptiveDecision");
     expect(result).toHaveProperty("milestoneEvaluation");
+  });
+});
+
+describe("Step 5 — Part J: Strengthen Evidence -> Diagnosis Quality Requirements", () => {
+  const baseHire = initialRahul;
+
+  it("1. Genuine knowledge/capability gap diagnoses prerequisite/capability gap and prescribes targeted learning/practice, not full generic module", () => {
+    // Worker with inconsistent evidence on scanner basics (Capability 2) struggling with rack coordinates
+    const hireWithPrereqGap = {
+      ...baseHire,
+      capabilities: {
+        ...baseHire.capabilities,
+        2: {
+          capabilityId: 2,
+          exposure: "reinforced" as const,
+          evidence: "inconsistent" as const,
+          performance: "below_target" as const,
+          mastery: "in_progress" as const,
+          lastAssessedAt: "Day 2",
+          reinforcementCount: 1,
+        },
+      },
+    };
+
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 28,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 20,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireWithPrereqGap,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        workerId: baseHire.id,
+        dayNumber: 3,
+        shiftTime: "Morning",
+        overallConfidence: "Confused",
+        challengesEncountered: ["Locations / Aisles"],
+        hasBlocker: false,
+        rawText: "I am confused by the scanner coordinate prompts on screen when navigating rack locations.",
+        timestamp: "Day 3 End",
+      } as any,
+    });
+
+    expect(result.pattern.patternName).toContain("Prerequisite Gap");
+    expect(result.action.targetCapabilityId).toBe(2);
+    expect(result.action.decisionType).toBe("return_prerequisite");
+    expect(result.action.targetActor).toContain("Buddy");
+    // Prescribes targeted 10-minute terminal coaching, NOT full 10-module generic LMS reset
+    expect(result.action.smallestPracticalStep).toMatch(/terminal|scanner|review/i);
+  });
+
+  it("2. Process/navigation problem correctly avoids unnecessary training and targets floor practice", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 31,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 24,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        workerId: baseHire.id,
+        dayNumber: 3,
+        shiftTime: "Morning",
+        overallConfidence: "Confused",
+        challengesEncountered: ["Locations / Aisles"],
+        hasBlocker: false,
+        rawText: "Hard to locate high rack items in Aisles 4 through 8 quickly.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.category).toBe("Environment");
+    expect(result.pattern.patternName).toContain("Spatial & Rack Coordinate");
+    expect(result.action.decisionType).toBe("reinforce_current");
+    expect(result.action.targetActor).toContain("Buddy");
+    expect(result.action.smallestPracticalStep).toContain("walkthrough");
+    expect(result.action.whyThisAction).not.toContain("LMS module");
+  });
+
+  it("3. Tool/environment problem correctly avoids unnecessary training and targets maintenance support", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 27,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 20,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        id: "sig-tool-01",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Tool",
+        issue: "Scanner laser trigger sticking",
+        confidence: "High",
+        summary: "Scanner hardware sticking repeatedly.",
+        possibleImpact: "Slow pick rate",
+        rawText: "Scanner laser trigger is sticking and takes 3 attempts per barcode scan.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.category).toBe("Tool");
+    expect(result.action.decisionType).toBe("tool_remedy");
+    expect(result.action.targetActor).toContain("Maintenance");
+    expect(result.action.whyThisAction).toMatch(/hardware/i);
+  });
+
+  it("4. Productivity gap with adequate accuracy and no stronger blocker prescribes floor rhythm practice", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 33, // 7 UPH gap below 40 UPH target
+      targetPickRate: 40,
+      accuracyRate: 99, // Pristine accuracy
+      ordersCompleted: 25,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        id: "sig-pacing-01",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Speed",
+        issue: "Pacing lag during morning rush",
+        confidence: "Medium",
+        summary: "Pacing lag during morning rush.",
+        possibleImpact: "Lower UPH",
+        rawText: "Pacing lag during morning rush; feeling fatigue keeping up with 40/hr pace.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.patternName).toContain("Floor Pacing & Route Practice Gap");
+    expect(result.action.targetActor).toContain("Buddy");
+    expect(result.action.smallestPracticalStep).toMatch(/picking|route|guided|pacing/i);
+  });
+
+  it("5. Independence/support-dependency gap prescribes solo-picking practice rather than retraining", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 38,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 30,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        id: "sig-dep-01",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Confidence",
+        issue: "Help dependency with buddy",
+        confidence: "Low",
+        summary: "Asks buddy for confirmation on every bin.",
+        possibleImpact: "Slow solo picking",
+        rawText: "I ask my buddy before scanning almost every bin just to be 100% sure.",
+        timestamp: "Day 3",
+      } as any,
+      managerSignal: {
+        id: "mgr-dep-01",
+        hireId: baseHire.id,
+        managerName: "Vikram R.",
+        dayNumber: 3,
+        state: "Needs support",
+        issueCategory: "Dependency" as any,
+        notes: "Worker asks buddy for confirmation on almost every bin pick despite knowing the process.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.patternName).toContain("Independence & Help Dependency");
+    expect(result.action.title).toContain("Solo-Picking");
+    expect(result.action.smallestPracticalStep).toMatch(/solo pick/i);
+  });
+
+  it("6. Communication/help-seeking issue diagnoses escalation hesitation rather than lack of skill", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 36,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 30,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        id: "sig-comm-01",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Confidence",
+        issue: "Communication hesitation",
+        confidence: "Low",
+        summary: "Nervous asking shift lead during rush.",
+        possibleImpact: "Unresolved blockers",
+        rawText: "I felt nervous asking the shift lead for clarification when the aisle was crowded.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.patternName).toContain("Floor Escalation & Peer Communication Hesitation");
+    expect(result.action.targetCapabilityId).toBe(18); // DSP-18-TEAM-ESCALATION
+    expect(result.action.targetActor).toContain("Buddy");
+  });
+
+  it("7. External blocker is diagnosed with zero blame on worker capability", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 4,
+      actualPickRate: 18,
+      targetPickRate: 45,
+      accuracyRate: 99,
+      ordersCompleted: 12,
+      targetOrders: 40,
+      externalBottleneck: "Zone B conveyor belt broke down for 75 minutes",
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 4,
+      workSignal,
+      dailySignal: {
+        id: "sig-ext-01",
+        workerId: baseHire.id,
+        dayNumber: 4,
+        category: "Environment",
+        issue: "Conveyor breakdown",
+        confidence: "High",
+        summary: "Conveyor breakdown halted picking for over an hour.",
+        possibleImpact: "Shift pick rate drop",
+        rawText: "Conveyor breakdown halted picking for over an hour.",
+        timestamp: "Day 4",
+      } as any,
+    });
+
+    expect(result.pattern.category).toBe("Environment");
+    expect(result.pattern.patternName).toContain("Facility Bottleneck");
+    expect(result.action.decisionType).toBe("no_action_monitor");
+    expect(result.action.targetActor).toContain("Operations");
+    expect(result.updatedStatus).toBe("Doing well");
+  });
+
+  it("8. Insufficient evidence produces not_enough_evidence without false failure", () => {
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 0,
+        targetPickRate: 40,
+        accuracyRate: 0,
+        ordersCompleted: 0,
+        targetOrders: 35,
+        hasWorkEvidence: false,
+      },
+    });
+
+    expect(result.pattern.patternName).toContain("Awaiting Floor Work Telemetry");
+    expect(result.action.decisionType).toBe("no_action_monitor");
+    expect(result.milestoneEvaluation?.standing).toBe("not_enough_evidence");
+    expect(result.milestoneEvaluation?.managerSummary).toContain("Not enough evidence");
+  });
+
+  it("9. Conflicting evidence: High speed (56 UPH) with low training completion caps readiness", () => {
+    const hireLowTraining = {
+      ...baseHire,
+      modulesCompleted: 2,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireLowTraining,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 56,
+        targetPickRate: 40,
+        accuracyRate: 98,
+        ordersCompleted: 45,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      },
+    });
+
+    expect(result.overallReadinessScore).toBeLessThanOrEqual(85);
+    expect(result.action.decisionType).not.toBe("jump_ahead");
+  });
+
+  it("10. One-off poor event does not permanently demote demonstrated capability without persistent failure", () => {
+    const hireWithGoodRecord = {
+      ...baseHire,
+      capabilities: {
+        ...baseHire.capabilities,
+        3: {
+          capabilityId: 3,
+          exposure: "reinforced" as const,
+          evidence: "demonstrated" as const,
+          performance: "on_target" as const,
+          mastery: "proficient" as const,
+          lastAssessedAt: "Day 2",
+          reinforcementCount: 1,
+        },
+      },
+    };
+
+    // External facility issue on Day 3
+    const result = executeCoordinationLoop({
+      hire: hireWithGoodRecord,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 22,
+        targetPickRate: 40,
+        accuracyRate: 98,
+        ordersCompleted: 15,
+        targetOrders: 35,
+        externalBottleneck: "Power outage in Zone C for 45 minutes",
+        hasWorkEvidence: true,
+      },
+      dailySignal: {
+        id: "sig-ext-02",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Environment",
+        issue: "Power outage",
+        confidence: "High",
+        summary: "Power outage in Zone C.",
+        possibleImpact: "Shift pick drop",
+        rawText: "Power outage in Zone C for 45 minutes.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    // Capability remains demonstrated and not destroyed
+    expect(result.updatedCapabilities[3].evidence).toBe("demonstrated");
+    expect(result.updatedStatus).toBe("Doing well");
+  });
+
+  it("11. Repeated evidence establishes genuine pattern (low accuracy breaches quality floor)", () => {
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 44,
+        targetPickRate: 40,
+        accuracyRate: 92, // Critically low accuracy
+        ordersCompleted: 35,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      },
+    });
+
+    expect(result.pattern.category).toBe("Process");
+    expect(result.pattern.patternName).toContain("Variant Differentiation");
+    expect(result.action.targetCapabilityId).toBe(6);
+    expect(result.action.decisionType).toBe("supervisor_demo");
+  });
+
+  it("12. Successful intervention provides evidence for diagnosis refinement and clears ramp-up", () => {
+    const successfulOutcome: ActionOutcome = {
+      id: "out-nav-success",
+      actionId: "act-nav-01",
+      dayNumber: 4,
+      performedBy: "Buddy (Vikram R.)",
+      performedAt: "Day 4 Start of Shift",
+      improved: "yes",
+      subsequentPickRate: 46,
+      subsequentAccuracy: 99,
+      notes: "Buddy walkthrough resolved aisle coordinate confusion.",
+    };
+
+    const hireWithRampUp = {
+      ...baseHire,
+      currentDay: 4,
+      rampUpPlan: {
+        isActive: true,
+        targetMilestoneDay: 3,
+        reason: "Navigation confusion",
+        treatmentType: "process_clarification" as const,
+        description: "Buddy walkthrough",
+        recommendedActor: "Buddy",
+        expectedDurationShifts: 1,
+        createdAtDay: 3,
+      },
+    };
+
+    const result = executeCoordinationLoop({
+      hire: hireWithRampUp,
+      dayNumber: 4,
+      workSignal: {
+        dayNumber: 4,
+        actualPickRate: 46,
+        targetPickRate: 45,
+        accuracyRate: 99,
+        ordersCompleted: 40,
+        targetOrders: 40,
+        hasWorkEvidence: true,
+      },
+      actionOutcome: successfulOutcome,
+    });
+
+    expect(result.updatedStatus).toBe("Doing well");
+    expect(result.rampUpPlan?.isActive).toBe(false);
+    expect(result.rampUpPlan?.clearedAtDay).toBe(4);
+    expect(result.updatedCapabilities[3].mastery).toMatch(/proficient|mastered/);
+  });
+
+  it("13. Failed intervention triggers reconsideration rather than blind repetition", () => {
+    const failedOutcome: ActionOutcome = {
+      id: "out-failed-walkthrough",
+      actionId: "act-walkthrough-01",
+      dayNumber: 4,
+      performedBy: "Buddy (Vikram R.)",
+      performedAt: "Day 4 Shift 1",
+      improved: "no",
+      subsequentPickRate: 30,
+      subsequentAccuracy: 98,
+      notes: "Buddy walkthrough completed, but picker still lagging in Aisles 4-8.",
+    };
+
+    const existingWalkthroughAction = {
+      id: "act-walkthrough-01",
+      dayNumber: 3,
+      actionType: "buddy_walkthrough" as const,
+      targetCapabilityId: 3,
+      targetActor: "Buddy (Vikram R.)",
+      urgency: "Next Shift" as const,
+      decisionType: "reinforce_current" as const,
+      title: "Buddy Walkthrough of Aisles 4-8",
+      description: "Vikram does a 15-minute walkthrough of Aisles 4-8.",
+      smallestPracticalStep: "15-minute walkthrough before Shift Wave 2",
+      status: "in_progress" as const,
+      createdAt: "Day 3",
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 4,
+      workSignal: {
+        dayNumber: 4,
+        actualPickRate: 30,
+        targetPickRate: 45,
+        accuracyRate: 98,
+        ordersCompleted: 24,
+        targetOrders: 40,
+        hasWorkEvidence: true,
+      },
+      actionOutcome: failedOutcome,
+      existingAction: existingWalkthroughAction,
+    });
+
+    expect(result.action.title).not.toBe("Buddy Walkthrough of Aisles 4-8");
+    expect(result.action.whyThisAction).toContain("walkthrough failed");
+    expect(result.action.targetActor).toContain("Supervisor");
+  });
+
+  it("14. Milestone gap does not automatically trigger learning treatment when cause is tool friction", () => {
+    const workSignal: WorkSignal = {
+      dayNumber: 3,
+      actualPickRate: 28,
+      targetPickRate: 40,
+      accuracyRate: 98,
+      ordersCompleted: 21,
+      targetOrders: 35,
+      hasWorkEvidence: true,
+    };
+
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal,
+      dailySignal: {
+        id: "sig-tool-02",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Tool",
+        issue: "Scanner touchscreen unresponsive",
+        confidence: "High",
+        summary: "Scanner touchscreen is unresponsive, requiring 3 taps per scan.",
+        possibleImpact: "Pacing delay",
+        rawText: "Scanner touchscreen is unresponsive, requiring 3 taps per scan.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.milestoneEvaluation?.standing).toBe("behind");
+    expect(result.pattern.category).toBe("Tool");
+    expect(result.action.decisionType).toBe("tool_remedy");
+    expect(result.rampUpPlan?.treatmentType).toBe("tool_environment_support");
+  });
+
+  it("15. Day 10 readiness rules remain intact (all 7 criteria evaluated)", () => {
+    const hireDay10 = {
+      ...baseHire,
+      currentDay: 10,
+      modulesCompleted: 10,
+    };
+
+    const evalResult = evaluateDay10Outcome(
+      hireDay10,
+      {
+        dayNumber: 10,
+        actualPickRate: 52,
+        targetPickRate: 50,
+        accuracyRate: 99,
+        ordersCompleted: 45,
+        targetOrders: 40,
+        hasWorkEvidence: true,
+      },
+      undefined,
+      undefined
+    );
+
+    expect(evalResult).toHaveProperty("isReady");
+    expect(evalResult).toHaveProperty("status");
+    expect(evalResult).toHaveProperty("unresolvedBlockers");
+    expect(evalResult).toHaveProperty("verifiedCriteria");
+    expect(evalResult.verifiedCriteria.length).toBe(7);
+  });
+
+  it("16. Existing non-milestone coordination behavior remains intact (safety overrides productivity)", () => {
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 3,
+      workSignal: {
+        dayNumber: 3,
+        actualPickRate: 55, // Very high speed
+        targetPickRate: 40,
+        accuracyRate: 99,
+        ordersCompleted: 45,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      },
+      dailySignal: {
+        id: "sig-safety-01",
+        workerId: baseHire.id,
+        dayNumber: 3,
+        category: "Safety",
+        issue: "Safety protocol breach on high shelf reach",
+        confidence: "High",
+        summary: "Worker stepped on bottom rack shelves without ladder.",
+        possibleImpact: "Fall hazard",
+        rawText: "Safety protocol breach: stepping on bottom rack shelves to reach upper items without ladder.",
+        timestamp: "Day 3",
+      } as any,
+    });
+
+    expect(result.pattern.patternName).toContain("Safety Protocol Blocker");
+    expect(result.action.targetCapabilityId).toBe(1);
+    expect(result.action.decisionType).toBe("supervisor_demo");
+    expect(result.action.urgency).toBe("Immediate");
+    expect(result.updatedStatus).toBe("At risk");
+  });
+
+  it("17. executeCoordinationLoop() remains the sole execution authority across full lifecycle", () => {
+    const result = executeCoordinationLoop({
+      hire: baseHire,
+      dayNumber: 5,
+      workSignal: {
+        dayNumber: 5,
+        actualPickRate: 48,
+        targetPickRate: 45,
+        accuracyRate: 99,
+        ordersCompleted: 42,
+        targetOrders: 40,
+        hasWorkEvidence: true,
+      },
+    });
+
+    expect(result.pattern).toBeDefined();
+    expect(result.action).toBeDefined();
+    expect(result.updatedStatus).toBeDefined();
+    expect(result.updatedCapabilities).toBeDefined();
+    expect(result.adaptiveDecision).toBeDefined();
+    expect(result.overallReadinessScore).toBeDefined();
   });
 });

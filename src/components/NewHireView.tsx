@@ -1104,6 +1104,7 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
           onSelectSection={setActiveSection}
           onUpdateHire={onUpdateHire}
           onOpenBuddy={() => setActiveSection("buddy")}
+          onOpenTelemetryDial={() => setActiveSection("dial")}
         />
       )}
 
@@ -1410,6 +1411,7 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
             isHindi={isHindi}
             onNavigateToSection={(section) => setActiveSection(section)}
             onOpenWorkTools={() => setActiveModal("work")}
+            onOpenTelemetryDial={() => setActiveSection("dial")}
           />
 
           {/* 3. DAILY SHIFT REPORT & CONTINUITY (CLICKABLE FOR FULL SUMMARY MODAL) */}

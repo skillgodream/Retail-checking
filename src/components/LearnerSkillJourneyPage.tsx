@@ -8,8 +8,9 @@ interface LearnerSkillJourneyPageProps {
   currentDay: number;
   isHindi?: boolean;
   onBack: () => void;
-  onNavigateToSection?: (section: "modules" | "buddy" | "dashboard" | "home") => void;
+  onNavigateToSection?: (section: "modules" | "buddy" | "dashboard" | "home" | "dial") => void;
   onOpenWorkTools?: () => void;
+  onOpenTelemetryDial?: () => void;
 }
 
 /**
@@ -24,7 +25,10 @@ export const LearnerSkillJourneyPage: React.FC<LearnerSkillJourneyPageProps> = (
   onBack,
   onNavigateToSection,
   onOpenWorkTools,
+  onOpenTelemetryDial,
 }) => {
+  const isAmit = newHire.name.toLowerCase().includes("amit");
+
   return (
     <div className="max-w-md mx-auto px-4 py-3 space-y-4 pb-16 select-none animate-in fade-in duration-200">
       {/* Top Learner Bar: Back button + Personal Header */}
@@ -55,6 +59,38 @@ export const LearnerSkillJourneyPage: React.FC<LearnerSkillJourneyPageProps> = (
         </div>
       </div>
 
+      {/* Cashier Station Background Banner specifically for Amit */}
+      {isAmit && (
+        <div className="relative rounded-3xl overflow-hidden shadow-lg border border-purple-200 text-white p-4 flex flex-col justify-end min-h-[140px]">
+          <div className="absolute inset-0 z-0">
+            <img
+              src="https://images.unsplash.com/photo-1556742049-0a67d5e112d8?q=80&w=1200&auto=format&fit=crop"
+              alt="Cashier Checkout Counter"
+              className="w-full h-full object-cover brightness-50"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-purple-950/95 via-purple-900/60 to-transparent" />
+          </div>
+
+          <div className="relative z-10 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-sm">
+                🏪 Cashier & POS Station
+              </span>
+              <span className="text-[11px] font-bold text-amber-300">
+                Zone B • Checkout Counter #3
+              </span>
+            </div>
+            <h3 className="text-sm font-black text-white leading-tight">
+              Amit Verma • 10-Day Retail Cashier Mastery
+            </h3>
+            <p className="text-[11px] text-purple-200 font-medium">
+              Active checkout scanner, billing accuracy, and fast customer queue management.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* The Learner's Pure 5-Level Visual Roadmap & Floor Missions */}
       <LearnerJourneyRoadmap
         newHire={newHire}
@@ -62,6 +98,7 @@ export const LearnerSkillJourneyPage: React.FC<LearnerSkillJourneyPageProps> = (
         isHindi={isHindi}
         onNavigateToSection={onNavigateToSection}
         onOpenWorkTools={onOpenWorkTools}
+        onOpenTelemetryDial={onOpenTelemetryDial}
       />
     </div>
   );

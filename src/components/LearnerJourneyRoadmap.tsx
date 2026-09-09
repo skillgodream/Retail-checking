@@ -28,8 +28,9 @@ interface LearnerJourneyRoadmapProps {
   currentDay: number;
   isHindi?: boolean;
   compact?: boolean;
-  onNavigateToSection?: (section: "modules" | "buddy" | "dashboard") => void;
+  onNavigateToSection?: (section: "modules" | "buddy" | "dashboard" | "dial") => void;
   onOpenWorkTools?: () => void;
+  onOpenTelemetryDial?: () => void;
   onSelectStage?: () => void;
 }
 
@@ -334,6 +335,7 @@ export const LearnerJourneyRoadmap: React.FC<LearnerJourneyRoadmapProps> = ({
   compact = false,
   onNavigateToSection,
   onOpenWorkTools,
+  onOpenTelemetryDial,
   onSelectStage,
 }) => {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
@@ -648,10 +650,13 @@ export const LearnerJourneyRoadmap: React.FC<LearnerJourneyRoadmapProps> = ({
                 Target: <strong>{adaptivePlan.productiveWork.targetPacing} UPH</strong> • Safe Zone
               </p>
             </div>
-            {onOpenWorkTools && (
+            {(onOpenTelemetryDial || onOpenWorkTools) && (
               <button
                 type="button"
-                onClick={onOpenWorkTools}
+                onClick={() => {
+                  if (onOpenTelemetryDial) onOpenTelemetryDial();
+                  else if (onOpenWorkTools) onOpenWorkTools();
+                }}
                 className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0 cursor-pointer shadow-2xs active:scale-95 transition-all"
               >
                 {isHindi ? "शुरू करें 🛠️" : "Start Floor 🛠️"}
@@ -670,7 +675,7 @@ export const LearnerJourneyRoadmap: React.FC<LearnerJourneyRoadmapProps> = ({
                 {adaptivePlan.progressionGate.unlockCriteria}
               </h4>
               <p className="text-[11px] text-slate-600 truncate">
-                Shift #{currentDay} Gate • {adaptivePlan.progressionGate.verifyingActor}
+                Shift #{currentDay} Gate • Status: {adaptivePlan.progressionGate.gateStatus}
               </p>
             </div>
             <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 text-[11px] font-bold shrink-0">

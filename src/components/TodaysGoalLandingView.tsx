@@ -33,6 +33,7 @@ interface TodaysGoalLandingViewProps {
   onSelectSection?: (section: LearnerSection) => void;
   onUpdateHire?: (updatedHire: NewHire) => void;
   onOpenBuddy?: () => void;
+  onOpenTelemetryDial?: () => void;
 }
 
 interface GoalCard {
@@ -65,6 +66,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   onBack,
   onSelectSection,
   onOpenBuddy,
+  onOpenTelemetryDial,
 }) => {
   // Role selector dropdown state
   const [selectedRole, setSelectedRole] = useState<string>("Retail Cashier • Till 1");
@@ -125,8 +127,8 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       tagHi: adaptivePlan.development.developmentType || "डीन द्वारा अनुशंसित अभ्यास",
       duration: `${adaptivePlan.development.durationMinutes || 12} min`,
       readinessPoints: 3,
-      whyText: adaptivePlan.deanRationale,
-      whyTextHi: `वर्क सिग्नल विश्लेषण: ${adaptivePlan.deanRationale}`,
+      whyText: "Dean recommended skill recovery based on recent shift audit signals.",
+      whyTextHi: "हालिया शिफ्ट ऑडिट के आधार पर डीन की अनुशंसित स्किल रिकवरी।",
       whatText: `Master ${adaptivePlan.development.focusCapabilityName} at ${adaptivePlan.productiveWork.zoneOrAisles} through ${adaptivePlan.development.actionDescription}.`,
       whatTextHi: `${adaptivePlan.productiveWork.zoneOrAisles} पर ${adaptivePlan.development.focusCapabilityName} में निपुणता हासिल करें।`,
       actionBullets: [
@@ -168,8 +170,8 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       tagHi: "साथी के साथ अभ्यास",
       duration: "15 min",
       readinessPoints: 3,
-      whyText: `Target floor pace of ${adaptivePlan.productiveWork.targetPacing} UPH requires hands-on mentoring at ${adaptivePlan.productiveWork.zoneOrAisles}.`,
-      whyTextHi: `${adaptivePlan.productiveWork.zoneOrAisles} पर ${adaptivePlan.productiveWork.targetPacing} UPH की गति के लिए साथी मार्गदर्शन आवश्यक है।`,
+      whyText: `Floor mentoring with ${buddyFirstName} for UPH pace & scanner accuracy.`,
+      whyTextHi: `गति और शुद्धता तेज करने के लिए साथी ${buddyFirstName} के साथ फ्लोर मेंटॉरिंग।`,
       whatText: `Walk through ${adaptivePlan.productiveWork.zoneOrAisles} with Buddy ${buddyFirstName} to master item lookup and scale calibration.`,
       whatTextHi: `साथी ${buddyFirstName} के साथ मिलकर ${adaptivePlan.productiveWork.zoneOrAisles} पर तेजी से काम करना सीखें।`,
       actionBullets: [
@@ -212,8 +214,8 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       tagHi: "एसएलए गति व शुद्धता",
       duration: "10 min",
       readinessPoints: 3,
-      whyText: `Milestone Day ${currentDay} requires sustained pace of ${adaptivePlan.productiveWork.targetPacing} UPH with zero mispicks.`,
-      whyTextHi: `डे ${currentDay} के लिए ${adaptivePlan.productiveWork.targetPacing} UPH की स्पीड और उच्च शुद्धता आवश्यक है।`,
+      whyText: `Maintain sustained target pace of ${adaptivePlan.productiveWork.targetPacing} UPH.`,
+      whyTextHi: `बिना गलती के ${adaptivePlan.productiveWork.targetPacing} UPH की गति बनाए रखें।`,
       whatText: `Execute orders at ${adaptivePlan.productiveWork.zoneOrAisles} maintaining target speed and zero mispicks.`,
       whatTextHi: `बिना गलती के ${adaptivePlan.productiveWork.targetPacing} UPH की स्पीड हासिल करें।`,
       actionBullets: [
@@ -251,8 +253,8 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       tagHi: `डे ${currentDay} गेट`,
       duration: "25 min",
       readinessPoints: 4,
-      whyText: `Unlock condition for Day ${currentDay} milestone: ${adaptivePlan.progressionGate.unlockCriteria}`,
-      whyTextHi: `डे ${currentDay} पास करने की शर्त: ${adaptivePlan.progressionGate.unlockCriteria}`,
+      whyText: `Mandatory readiness gate check for Day ${currentDay} progression.`,
+      whyTextHi: `डे ${currentDay} की प्रगति के लिए अनिवार्य गेट चेक।`,
       whatText: `Demonstrate compliance with ${adaptivePlan.progressionGate.unlockCriteria} during live shift operations.`,
       whatTextHi: `${adaptivePlan.progressionGate.unlockCriteria} का सफलतापूर्वक पालन करें।`,
       actionBullets: [
@@ -290,8 +292,8 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       tagHi: "शिफ्ट समापन",
       duration: "5 min",
       readinessPoints: 2,
-      whyText: `Closes your Day ${currentDay} learning loop and signals Store Supervisor ${supervisorFirstName} that you met all milestone criteria.`,
-      whyTextHi: `दिन ${currentDay} की प्रगति को सुरक्षित करता है और स्टोर सुपरवाइजर ${supervisorFirstName} को सूचित करता है।`,
+      whyText: `Quick voice feedback for shift review and credit confirmation.`,
+      whyTextHi: `शिफ्ट समीक्षा और क्रेडिट पुष्टि के लिए संक्षिप्त वॉयस फीडबैक।`,
       whatText: `Record a quick 30-second voice reflection on today's shift experience.`,
       whatTextHi: `30 सेकंड का ऑडियो संदेश रिकॉर्ड करें कि आज का दिन कैसा रहा।`,
       actionBullets: [
@@ -382,7 +384,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
       {/* ========================================================= */}
       {/* 1. TOP PURPLE HERO APP BAR (COMPLETELY PRESERVED AS DIRECTED) */}
       {/* ========================================================= */}
-      <div className="w-full bg-[#271549] text-white pt-3 pb-4 px-4 shadow-md relative z-20">
+      <div className="w-full bg-gradient-to-r from-violet-950 via-indigo-700 to-cyan-500 text-white pt-3 pb-4 px-4 shadow-md relative z-20">
         {/* Status bar notch representation */}
         <div className="flex items-center justify-between text-[11px] text-purple-200/80 font-mono pb-2 border-b border-white/10">
           <span className="flex items-center gap-1 font-semibold">
@@ -632,13 +634,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
             return (
               <div
                 key={card.id}
-                className={`rounded-3xl border transition-all duration-200 overflow-hidden shadow-2xs ${
-                  isDone
-                    ? "bg-emerald-50/40 border-emerald-300"
-                    : isExpanded
-                    ? "bg-white border-[#7025fb]/40 ring-2 ring-[#7025fb]/10 shadow-md"
-                    : "bg-white border-slate-200 hover:border-purple-300 hover:shadow-xs"
-                }`}
+                className="rounded-3xl border border-white/25 transition-all duration-200 overflow-hidden shadow-xl bg-gradient-to-r from-violet-950 via-indigo-700 to-cyan-500 text-white"
               >
                 {/* ---------------- CARD HEADER (ALWAYS VISIBLE) ---------------- */}
                 <div
@@ -646,62 +642,34 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
                   className="p-4 cursor-pointer flex items-start justify-between gap-3 select-none"
                 >
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {/* Completion Checkbox Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleCardDone(card.id, e)}
-                      className={`w-6 h-6 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${
-                        isDone
-                          ? "bg-emerald-600 text-white shadow-xs"
-                          : "border-2 border-slate-300 hover:border-[#7025fb] text-transparent hover:text-purple-300"
-                      }`}
-                      aria-label="Toggle Complete"
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </button>
-
                     {/* Title and High-level Summary */}
-                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-[#7025fb] font-mono">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/20 text-white font-mono shadow-2xs">
                           STEP {card.stepNumber}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold text-purple-100 bg-white/15 px-2 py-0.5 rounded-md">
                           {isHindi ? card.tagHi : card.tag}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-purple-200 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {card.duration}
                         </span>
-                        <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-black text-cyan-200 bg-white/15 px-2 py-0.5 rounded-md">
                           +{card.readinessPoints}%
                         </span>
                       </div>
 
-                      <h3
-                        className={`text-sm font-black leading-snug tracking-tight ${
-                          isDone ? "line-through text-slate-400" : "text-slate-900"
-                        }`}
-                      >
+                      <h3 className="text-sm font-black leading-snug tracking-tight text-white">
                         {isHindi ? card.titleHi : card.title}
                       </h3>
-
-                      {/* Clean 1-line Why & What preview when collapsed */}
-                      {!isExpanded && (
-                        <p className="text-[11px] text-slate-500 line-clamp-1 pt-0.5">
-                          <span className="font-bold text-purple-800">
-                            {isHindi ? "कारण: " : "Why: "}
-                          </span>
-                          {isHindi ? card.whyTextHi : card.whyText}
-                        </p>
-                      )}
                     </div>
                   </div>
 
                   {/* Expand / Collapse Chevron */}
-                  <div className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 shrink-0 transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white shrink-0 transition-colors">
                     {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-purple-700" />
+                      <ChevronUp className="w-4 h-4 text-cyan-200" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
@@ -710,40 +678,40 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
 
                 {/* ---------------- EXPANDED DETAILS (WHY, WHAT, VIDEO) ---------------- */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3.5 bg-gradient-to-b from-slate-50/50 to-white animate-in fade-in duration-200">
+                  <div className="px-4 pb-4 pt-1 border-t border-white/10 space-y-3.5 bg-black/30 backdrop-blur-xs animate-in fade-in duration-200 text-white">
                     {/* BOX 1: WHY IS THIS TASK GIVEN TO ME? */}
-                    <div className="p-3 rounded-2xl bg-purple-50/70 border border-purple-100 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 font-black text-[#7025fb]">
+                    <div className="p-3 rounded-2xl bg-white/10 border border-white/15 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-black text-cyan-200">
                         <Info className="w-4 h-4 shrink-0" />
                         <span className="uppercase tracking-wide text-[11px]">
                           {isHindi ? "यह कार्य मुझे क्यों दिया गया है? (WHY)" : "WHY THIS IS ASSIGNED TO YOU"}
                         </span>
                       </div>
-                      <p className="text-slate-700 leading-relaxed font-medium pl-5">
+                      <p className="text-purple-100 leading-relaxed font-medium pl-5">
                         {isHindi ? card.whyTextHi : card.whyText}
                       </p>
                     </div>
 
                     {/* BOX 2: WHAT DO I HAVE TO DO? */}
-                    <div className="p-3 rounded-2xl bg-amber-50/60 border border-amber-100 text-xs space-y-1.5">
-                      <div className="flex items-center gap-1.5 font-black text-amber-900">
-                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div className="p-3 rounded-2xl bg-white/10 border border-white/15 text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-black text-amber-300">
+                        <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
                         <span className="uppercase tracking-wide text-[11px]">
                           {isHindi ? "मुझे क्या करना है? (WHAT TO DO)" : "WHAT YOU NEED TO DO"}
                         </span>
                       </div>
-                      <p className="text-slate-800 font-bold pl-5 leading-snug">
+                      <p className="text-white font-bold pl-5 leading-snug">
                         {isHindi ? card.whatTextHi : card.whatText}
                       </p>
 
                       {/* Action Steps Bullets */}
                       <div className="pl-5 pt-1 space-y-1.5">
                         {card.actionBullets.map((bullet, idx) => (
-                          <div key={idx} className="flex items-start gap-2 text-[11px] text-slate-700">
-                            <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-900 font-black flex items-center justify-center shrink-0 text-[10px] mt-0.5">
+                          <div key={idx} className="flex items-start gap-2 text-[11px] text-purple-100">
+                            <span className="w-4 h-4 rounded-full bg-cyan-400/30 text-cyan-200 font-black flex items-center justify-center shrink-0 text-[10px] mt-0.5">
                               {idx + 1}
                             </span>
-                            <span className="leading-snug">
+                            <span className="leading-snug text-white">
                               {isHindi ? bullet.hi : bullet.en}
                             </span>
                           </div>
@@ -935,36 +903,37 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
                       </div>
                     )}
 
-                    {/* COMPLETE & CLAIM POINTS BUTTON */}
+                    {/* DEEP-LINK ACTIVITY WORKSPACE BUTTON */}
                     <div className="pt-1">
                       <button
                         type="button"
-                        onClick={(e) => handleToggleCardDone(card.id, e)}
-                        className={`w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
-                          isDone
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : "bg-[#7025fb] hover:bg-[#601ee0] text-white shadow-md shadow-purple-600/25"
-                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (card.id === "card_1" || card.id === "card_4") {
+                            if (onSelectSection) onSelectSection("modules");
+                          } else if (card.id === "card_2") {
+                            if (onOpenBuddy) onOpenBuddy();
+                            else if (onSelectSection) onSelectSection("buddy");
+                          } else if (card.id === "card_3") {
+                            if (onOpenTelemetryDial) onOpenTelemetryDial();
+                            else if (onSelectSection) onSelectSection("dial");
+                          } else {
+                            if (onOpenTelemetryDial) onOpenTelemetryDial();
+                            else if (onSelectSection) onSelectSection("dial");
+                          }
+                        }}
+                        className="w-full py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer bg-[#7025fb] hover:bg-[#601ee0] text-white shadow-md shadow-purple-600/25"
                       >
-                        {isDone ? (
-                          <>
-                            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                            <span>
-                              {isHindi
-                                ? `कार्य पूर्ण (+${card.readinessPoints}% रेडीनेस अर्जित)`
-                                : `Step ${card.stepNumber} Done (+${card.readinessPoints}% Added)`}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span>
-                              {isHindi
-                                ? `कार्य पूरा करें व +${card.readinessPoints}% अंक लें`
-                                : `Mark Step ${card.stepNumber} Complete & Claim +${card.readinessPoints}%`}
-                            </span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </>
-                        )}
+                        <span>
+                          {card.id === "card_1" || card.id === "card_4"
+                            ? (isHindi ? "वीडियो व प्रशिक्षण मॉड्यूल खोलें 🎥" : "Open Video & Training Module 🎥")
+                            : card.id === "card_2"
+                            ? (isHindi ? "बडी फ्लोर कोचिंग शुरू करें 👥" : "Start Buddy Floor Coaching 👥")
+                            : card.id === "card_3"
+                            ? (isHindi ? "फ्लोर टेलीमेट्री डायल खोलें ⚡" : "Open Floor Telemetry Dial ⚡")
+                            : (isHindi ? "शिफ्ट चेक-आउट वॉयस रिपोर्ट 🎙️" : "Shift Voice Report & Check-out 🎙️")}
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

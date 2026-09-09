@@ -3,6 +3,7 @@ import { CircularDialWidget } from "./CircularDialWidget";
 import { StoreZonesGrid } from "./StoreZonesGrid";
 import { X, Briefcase, Sparkles, MapPin, ScanLine, Phone } from "lucide-react";
 import { NewHire } from "../types";
+import { assessReadiness } from "../services/intelligence";
 
 interface TelemetryDialModalProps {
   isOpen: boolean;
@@ -43,7 +44,9 @@ export const TelemetryDialModal: React.FC<TelemetryDialModalProps> = ({
   const accuracyRate = currentRecord.workSignal?.accuracyRate ?? 98;
   const readinessScore = typeof newHire?.overallReadinessScore === "number"
     ? (newHire.overallReadinessScore <= 1 ? Math.round(newHire.overallReadinessScore * 100) : Math.round(newHire.overallReadinessScore))
-    : Math.round((newHire?.rampProgress || 0.74) * 100);
+    : assessReadiness(newHire?.capabilities || {}, newHire);
+
+  const isDarkStore = newHire?.roleId === "dark_store_picker";
 
   return (
     <div
@@ -67,7 +70,7 @@ export const TelemetryDialModal: React.FC<TelemetryDialModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                {newHire?.name || "Learner"} • {newHire?.roleTitle || newHire?.role || "Picker"} • Dark Store #104
+                {newHire?.name || "Learner"} • {newHire?.roleTitle || (isDarkStore ? "Dark Store Picker" : "Retail Cashier")} • {isDarkStore ? "Dark Store #104" : "Retail Store #104"}
               </p>
             </div>
           </div>
@@ -100,6 +103,7 @@ export const TelemetryDialModal: React.FC<TelemetryDialModalProps> = ({
           onAisleMap={() => setSubModal("map")}
           onOpenTarget={() => setSubModal("target")}
           isHindi={isHindi}
+          roleId={newHire?.roleId}
         />
 
         {/* Store Zones Grid */}
@@ -114,7 +118,8 @@ export const TelemetryDialModal: React.FC<TelemetryDialModalProps> = ({
             }
           }}
           isHindi={isHindi}
-          activeZoneId={currentDay === 3 ? "aisles_4_8" : "aisles_1_3"}
+          activeZoneId={isDarkStore ? (currentDay === 3 ? "aisles_4_8" : "aisles_1_3") : "express_till_1"}
+          roleId={newHire?.roleId}
         />
 
         {/* Quick Done / Back Button */}
@@ -141,8 +146,12 @@ export const TelemetryDialModal: React.FC<TelemetryDialModalProps> = ({
             </div>
             <p className="text-xs text-slate-600">
               {isHindi
-                ? "आइसल 1-3: स्नैक्स व बिस्कुट | आइसल 4-8: बल्क दाल व तेल | कोल्ड रूम: डेयरी व दूध"
-                : "Aisles 1-3: Snacks & Beverages | Aisles 4-8: Bulk Staple & Flour | Cold Room: Dairy"}
+                ? (isDarkStore
+                    ? "आइसल 1-3: स्नैक्स व बिस्कुट | आइसल 4-8: बल्क दाल व तेल | कोल्ड रूम: डेयरी व दूध"
+                    : "टिल 1: एक्सप्रेस बारकोड बिलिंग | टिल 2: कार्ड व यूपीआई भुक्तान | सब्जी व फल: PLU तौल काउंटर")
+                : (isDarkStore
+                    ? "Aisles 1-3: Snacks & Beverages | Aisles 4-8: Bulk Staple & Flour | Cold Room: Dairy"
+                    : "Till 1: Express Barcode Checkout | Till 2: Multi-Tender & UPI | Produce: PLU & Scale Station")}
             </p>
             <button
               onClick={() => setSubModal(null)}

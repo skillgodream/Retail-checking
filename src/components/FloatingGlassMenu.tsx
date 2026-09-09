@@ -4,9 +4,10 @@ import {
   BookOpen,
   Gauge,
   User,
+  Milestone,
 } from "lucide-react";
 
-export type LearnerSection = "home" | "modules" | "dial" | "dashboard" | "buddy" | "todays_goal";
+export type LearnerSection = "home" | "journey" | "modules" | "dial" | "dashboard" | "buddy" | "todays_goal";
 
 interface FloatingGlassMenuProps {
   activeSection: LearnerSection;
@@ -36,6 +37,12 @@ export const FloatingGlassMenu: React.FC<FloatingGlassMenuProps> = ({
       labelHi: "होम",
       icon: <Home className="w-4 h-4 stroke-[2.2]" />,
       badge: hasAttention,
+    },
+    {
+      id: "journey",
+      labelEn: "10D Path",
+      labelHi: "10D रास्ता",
+      icon: <Milestone className="w-4 h-4 stroke-[2.2]" />,
     },
     {
       id: "modules",

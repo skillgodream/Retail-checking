@@ -42,6 +42,7 @@ import {
   AdaptiveCurrentPlan,
 } from "../models/milestones";
 import { evaluateDay10Outcome, determineAdaptiveCurrentPlan } from "../services/intelligence";
+import { LearnerJourneyRoadmap } from "./LearnerJourneyRoadmap";
 
 interface TenDaySkillJourneyViewProps {
   newHires: NewHire[];
@@ -49,6 +50,9 @@ interface TenDaySkillJourneyViewProps {
   onSelectHire: (hireId: string) => void;
   currentDay: number;
   onBackToManager?: () => void;
+  isHindi?: boolean;
+  onNavigateToSection?: (section: "modules" | "buddy" | "dashboard" | "home") => void;
+  onOpenWorkTools?: () => void;
 }
 
 interface TimelineDayConfig {
@@ -59,7 +63,87 @@ interface TimelineDayConfig {
   isMilestone: boolean;
 }
 
-const TIMELINE_DAYS: TimelineDayConfig[] = [
+export const RETAIL_CASHIER_TIMELINE_DAYS: TimelineDayConfig[] = [
+  {
+    day: 0,
+    title: "DAY 0",
+    label: "Foundation",
+    description: "Orientation, retail store layout, and till counter safety setup",
+    isMilestone: false,
+  },
+  {
+    day: 1,
+    title: "DAY 1",
+    label: "Role understanding",
+    description: "POS terminal setup, cashier keypad, and basic billing concepts",
+    isMilestone: false,
+  },
+  {
+    day: 2,
+    title: "DAY 2",
+    label: "Scanning",
+    description: "Laser scanner 45° optical sweep alignment and damaged tag lookup",
+    isMilestone: false,
+  },
+  {
+    day: 3,
+    title: "DAY 3",
+    label: "Basic Work Execution",
+    description: "Independent barcode scanning, loose produce PLU lookup, and till scale",
+    isMilestone: true,
+  },
+  {
+    day: 4,
+    title: "DAY 4",
+    label: "Routine practice",
+    description: "Multi-pack SKU verification, price checks, and line item void overrides",
+    isMilestone: false,
+  },
+  {
+    day: 5,
+    title: "DAY 5",
+    label: "Consistent Core Execution",
+    description: "Cash tender verification, counterfeit note checks, and exact change return",
+    isMilestone: true,
+  },
+  {
+    day: 6,
+    title: "DAY 6",
+    label: "Pacing & balance",
+    description: "Dynamic UPI QR code generation, card terminal swipe, and payment split",
+    isMilestone: false,
+  },
+  {
+    day: 7,
+    title: "DAY 7",
+    label: "Independent Multi-Task Execution",
+    description: "Customer bagging, fragile item care, liquid isolation, and security tags",
+    isMilestone: true,
+  },
+  {
+    day: 8,
+    title: "DAY 8",
+    label: "Wave transitions",
+    description: "Peak queue pacing, express lane SLA, and customer return receipt matching",
+    isMilestone: false,
+  },
+  {
+    day: 9,
+    title: "DAY 9",
+    label: "Near Job-Ready",
+    description: "Mid-shift safe cash drop protocols, price discrepancy escalation, and till audit",
+    isMilestone: true,
+  },
+  {
+    day: 10,
+    title: "DAY 10",
+    label: "Job Readiness",
+    description: "End-of-shift Z-report cash reconciliation, shift handover, and peak rush autonomy",
+    isMilestone: true,
+  },
+];
+
+export const DARK_STORE_TIMELINE_DAYS: TimelineDayConfig[] = [
   {
     day: 0,
     title: "DAY 0",
@@ -139,6 +223,15 @@ const TIMELINE_DAYS: TimelineDayConfig[] = [
   },
 ];
 
+export function getTimelineDaysForRole(roleId?: string): TimelineDayConfig[] {
+  if (roleId === "dark_store_picker") {
+    return DARK_STORE_TIMELINE_DAYS;
+  }
+  return RETAIL_CASHIER_TIMELINE_DAYS;
+}
+
+export const TIMELINE_DAYS: TimelineDayConfig[] = RETAIL_CASHIER_TIMELINE_DAYS;
+
 const CANONICAL_MILESTONE_DAYS = [3, 5, 7, 9, 10];
 
 export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
@@ -147,8 +240,13 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
   onSelectHire,
   currentDay,
   onBackToManager,
+  isHindi = false,
+  onNavigateToSection,
+  onOpenWorkTools,
 }) => {
   const activeHire = newHires.find((h) => h.id === activeHireId) || newHires[0];
+  const activeTimelineDays = getTimelineDaysForRole(activeHire.roleId);
+  const [primaryPerspective, setPrimaryPerspective] = useState<"learner_roadmap" | "manager_analytics">("learner_roadmap");
   const [expandedMilestoneDay, setExpandedMilestoneDay] = useState<number | null>(
     activeHire.currentDay <= 3 ? 3 : activeHire.currentDay <= 5 ? 5 : activeHire.currentDay <= 7 ? 7 : 10
   );
@@ -338,7 +436,7 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
       {/* ========================================================= */}
       {/* 1. TOP TITLE & SUBTITLE                                   */}
       {/* ========================================================= */}
-      <div className="pt-1">
+      <div className="pt-1 space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {onBackToManager && (
@@ -357,26 +455,26 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
                 <span>10-Day Skill Journey</span>
               </h1>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Where the learner should be vs where they are
+                Manager Diagnostic & Capability Progression Ledger
               </p>
             </div>
           </div>
 
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold tracking-wide uppercase border border-slate-200/80">
-            Manager View
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase border bg-slate-100 text-slate-700 border-slate-200/80">
+            Supervisor
           </span>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* 2. LEARNER SELECTOR CAROUSEL                              */}
+      {/* 2. LEARNER SELECTOR CAROUSEL (FOR SUPERVISORS)            */}
       {/* ========================================================= */}
       <div>
         <div className="flex items-center justify-between mb-1.5 px-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Active Cohort
+            Cohort Members
           </span>
-          <span className="text-[10px] text-slate-400">Tap to inspect journey</span>
+          <span className="text-[10px] text-slate-400">Select learner to inspect</span>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
@@ -417,26 +515,28 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* 2.5. ADAPTIVE PROGRESSION & PIT-STOP PHILOSOPHY BANNER    */}
+      {/* 3. MANAGER DIAGNOSTIC LEDGER CONTENT                      */}
       {/* ========================================================= */}
-      <div className="p-3.5 rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-sm border border-indigo-800/60 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded-lg bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
-              <Sparkles className="w-3.5 h-3.5" />
+      <div className="space-y-4 animate-in fade-in duration-200">
+          {/* 2.5. ADAPTIVE PROGRESSION & PIT-STOP PHILOSOPHY BANNER    */}
+          <div className="p-3.5 rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white shadow-sm border border-indigo-800/60 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-lg bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-200">
+                  ADAPTIVE PROGRESSION • F1 PIT-STOP MODEL
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-700/50">
+                One Brain (Dean)
+              </span>
             </div>
-            <span className="text-xs font-black uppercase tracking-wider text-indigo-200">
-              ADAPTIVE PROGRESSION • F1 PIT-STOP MODEL
-            </span>
+            <p className="text-xs text-indigo-100/90 leading-relaxed">
+              <strong>CheckIn is an Adaptive Productivity System:</strong> Everyone shares the same Ideal Destination (Day 10 Commercial Job Readiness), but each worker has a personalized Actual Trajectory. When calibration is needed, Dean triggers a <em>Pit-Stop</em>: assigning safe productive floor work while targeted practice clears the prerequisite before advancing.
+            </p>
           </div>
-          <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-700/50">
-            One Brain (Dean)
-          </span>
-        </div>
-        <p className="text-xs text-indigo-100/90 leading-relaxed">
-          <strong>CheckIn is an Adaptive Productivity System:</strong> Everyone shares the same Ideal Destination (Day 10 Commercial Job Readiness), but each worker has a personalized Actual Trajectory. When calibration is needed, Dean triggers a <em>Pit-Stop</em>: assigning safe productive floor work while targeted practice clears the prerequisite before advancing.
-        </p>
-      </div>
 
       {/* ========================================================= */}
       {/* 3. IDEAL VS ACTUAL SUMMARY CARD                           */}
@@ -1262,7 +1362,7 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
           {/* Continuous central vertical line */}
           <div className="absolute left-[17px] sm:left-[21px] top-4 bottom-4 w-1 bg-slate-200 rounded-full" />
 
-          {TIMELINE_DAYS.map((cfg) => {
+          {activeTimelineDays.map((cfg) => {
             const isCurrentDay = cfg.day === learnerDay;
             const isPastDay = cfg.day < learnerDay;
             const isMilestone = cfg.isMilestone;
@@ -1362,6 +1462,7 @@ export const TenDaySkillJourneyView: React.FC<TenDaySkillJourneyViewProps> = ({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 };

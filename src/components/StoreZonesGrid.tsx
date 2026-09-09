@@ -27,17 +27,73 @@ interface StoreZonesGridProps {
   activeZoneId?: string;
   currentPickRate?: number;
   targetPickRate?: number;
+  roleId?: string;
 }
 
 export const StoreZonesGrid: React.FC<StoreZonesGridProps> = ({
   onSelectZone,
   onAisleSelect,
   isHindi = false,
-  activeZoneId = "aisles_4_8",
+  activeZoneId = "express_till_1",
+  roleId,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(activeZoneId);
 
-  const zones: StoreZone[] = [
+  const isDarkStore = roleId === "dark_store_picker";
+
+  const cashierZones: StoreZone[] = [
+    {
+      id: "express_till_1",
+      name: "Till 1 — Express Checkout",
+      nameHindi: "टिल 1 — एक्सप्रेस चेकआउट",
+      subtitle: "Barcode Scanning & Rapid Checkout",
+      subtitleHindi: "बारकोड स्कैनिंग व तेज़ बिलिंग",
+      icon: <ScanLine className="w-7 h-7" />,
+      statusBadge: isHindi ? "वर्तमान टिल" : "Active Till",
+    },
+    {
+      id: "multi_tender_till_2",
+      name: "Till 2 — Multi-Tender",
+      nameHindi: "टिल 2 — मल्टी-टेंडर बिलिंग",
+      subtitle: "Card, UPI QR, Digital Vouchers & Loyalty",
+      subtitleHindi: "कार्ड, यूपीआई, वाउचर व लॉयल्टी",
+      icon: <Truck className="w-7 h-7" />,
+    },
+    {
+      id: "produce_weighing",
+      name: "Produce Weighing Station",
+      nameHindi: "सब्जी व फल तौल काउंटर",
+      subtitle: "Manual Produce PLU Entry & Price Verification",
+      subtitleHindi: "मैनुअल PLU एंट्री व मूल्य सत्यापन",
+      icon: <Layers className="w-7 h-7" />,
+    },
+    {
+      id: "service_desk",
+      name: "Customer Service Desk",
+      nameHindi: "कस्टमर सर्विस व रिटर्न डेस्क",
+      subtitle: "Returns, Exchanges, Credit Notes & Exceptions",
+      subtitleHindi: "रिटर्न, एक्सचेंज व क्रेडिट नोट",
+      icon: <ThermometerSnowflake className="w-7 h-7" />,
+    },
+    {
+      id: "scanner_dock",
+      name: "Scanner Bay & Charging",
+      nameHindi: "स्कैनर बे व चार्जिंग",
+      subtitle: "Barcode Gun Connectivity & Paper Rolls",
+      subtitleHindi: "बारकोड गन व प्रिंटर रोल",
+      icon: <Package className="w-7 h-7" />,
+    },
+    {
+      id: "buddy_desk",
+      name: "Supervisor Desk",
+      nameHindi: "विक्रम भैया डेस्क",
+      subtitle: "Buddy Assistance & Price Overrides",
+      subtitleHindi: "सुपरवाइजर सहायता केंद्र",
+      icon: <UserCheck className="w-7 h-7" />,
+    },
+  ];
+
+  const darkStoreZones: StoreZone[] = [
     {
       id: "aisles_1_3",
       name: "Aisles 1–3",
@@ -89,6 +145,8 @@ export const StoreZonesGrid: React.FC<StoreZonesGridProps> = ({
     },
   ];
 
+  const zones = isDarkStore ? darkStoreZones : cashierZones;
+
   const handleCardClick = (zone: StoreZone) => {
     setSelectedId(zone.id);
     if (onSelectZone) {
@@ -103,7 +161,13 @@ export const StoreZonesGrid: React.FC<StoreZonesGridProps> = ({
     <div className="space-y-3 select-none">
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          {isHindi ? "डार्क स्टोर ज़ोन" : "Dark Store Zones"}
+          {isHindi
+            ? isDarkStore
+              ? "डार्क स्टोर ज़ोन"
+              : "रिटेल चेकआउट ज़ोन"
+            : isDarkStore
+            ? "Dark Store Zones"
+            : "Retail Checkout Zones"}
         </span>
         <span className="text-xs text-purple-700 font-bold">
           {isHindi ? "टैप करके दिशा देखें" : "Tap for guidance"}

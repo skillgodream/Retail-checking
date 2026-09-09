@@ -28,7 +28,7 @@ import {
   CapabilityState,
   DARK_STORE_CAPABILITIES,
 } from "../types";
-import { evaluateDay10Outcome } from "../services/intelligence";
+import { evaluateDay10Outcome, assessReadiness } from "../services/intelligence";
 
 interface JobReadyHumanFigureProps {
   newHire: NewHire;
@@ -64,6 +64,10 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
   >("practice");
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [showAllCategoriesModal, setShowAllCategoriesModal] = useState<boolean>(false);
+  const [activePillarModal, setActivePillarModal] = useState<
+    "learning" | "practice" | "simulation" | "assessment" | null
+  >(null);
+  const [selectedCriterionIndex, setSelectedCriterionIndex] = useState<number | null>(null);
 
   const capabilities = newHire?.capabilities || {};
   const currentCapId = newHire?.currentCapabilityId || 3;
@@ -127,7 +131,7 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
       ? (newHire.overallReadinessScore <= 1
           ? Math.round(newHire.overallReadinessScore * 100)
           : Math.round(newHire.overallReadinessScore))
-      : learningPct + practicePct + simPct + assessPct
+      : assessReadiness(capabilities, newHire)
   );
 
   const categories: CapabilityCategory[] = [
@@ -417,27 +421,37 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
               <button
                 key={cat.id}
                 type="button"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  setActivePillarModal(cat.id);
+                }}
                 className={`rounded-[24px] p-4 sm:p-5 flex flex-col justify-between aspect-4/3 text-left transition-all cursor-pointer border relative overflow-hidden group shadow-2xs ${
                   isSelected
                     ? "bg-white border-[#7025fb] ring-2 ring-[#7025fb]/25 shadow-md scale-[1.01]"
                     : "bg-[#E8E8EE] hover:bg-[#DFDFE7] border-slate-200/50"
                 }`}
+                title={isHindi ? "विस्तार से देखने के लिए क्लिक करें" : "Click to view pillar details"}
               >
-                {/* Top: Vibrant Purple Icon */}
+                {/* Top: Vibrant Purple Icon & Pop-up Badge */}
                 <div className="flex items-center justify-between w-full">
                   <div className="w-9 h-9 rounded-2xl bg-white/90 border border-slate-200/40 flex items-center justify-center shadow-2xs">
                     {cat.icon}
                   </div>
-                  <span className="text-xs font-black text-slate-900">
-                    {catScore}%
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-[#7025fb] bg-purple-50 px-1.5 py-0.5 rounded-md border border-purple-100 hidden xs:inline">
+                      {isHindi ? "विवरण" : "Details"}
+                    </span>
+                    <span className="text-xs font-black text-slate-900">
+                      {catScore}%
+                    </span>
+                  </div>
                 </div>
 
                 {/* Bottom: Category Name & Completed Count */}
                 <div className="space-y-0.5">
-                  <div className="text-sm font-bold text-slate-900 leading-tight truncate">
-                    {isHindi ? cat.titleHi : cat.title}
+                  <div className="text-sm font-bold text-slate-900 leading-tight truncate flex items-center justify-between">
+                    <span>{isHindi ? cat.titleHi : cat.title}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#7025fb] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <div className="text-[11px] text-slate-500 font-medium truncate">
                     {cat.completedCount}/{cat.totalCount} {isHindi ? "पूर्ण" : "done"}
@@ -457,24 +471,34 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
         </div>
 
         {/* Active Category Detail Pill Card */}
-        <div className="bg-white rounded-[24px] p-4 border border-slate-200/70 shadow-xs flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setActivePillarModal(selectedCategory)}
+          className="w-full bg-white hover:bg-purple-50/40 transition-colors rounded-[24px] p-4 border border-slate-200/70 shadow-xs flex items-center justify-between gap-3 text-left cursor-pointer group"
+        >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#7025fb] flex items-center justify-center shrink-0">
               {activeCategoryData.icon}
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-900">
-                {isHindi ? activeCategoryData.titleHi : activeCategoryData.title} • {Math.round(activeCategoryData.ratio * activeCategoryData.weight)}%
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span>{isHindi ? activeCategoryData.titleHi : activeCategoryData.title} • {Math.round(activeCategoryData.ratio * activeCategoryData.weight)}%</span>
+                <span className="text-[10px] text-[#7025fb] font-semibold underline underline-offset-2">
+                  ({isHindi ? "जांचें" : "Check Details"})
+                </span>
               </div>
               <div className="text-[11px] text-slate-500 font-medium">
                 {isHindi ? activeCategoryData.completedTextHi : activeCategoryData.completedText}
               </div>
             </div>
           </div>
-          <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full shrink-0">
-            {Math.round(activeCategoryData.ratio * 100)}%
-          </span>
-        </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
+              {Math.round(activeCategoryData.ratio * 100)}%
+            </span>
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7025fb] transition-colors" />
+          </div>
+        </button>
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -485,12 +509,14 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
         return (
           <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-3">
             {/* DEDICATED HEADER CARD: HEADING NAME & NOT READY / JOB READY ICON */}
-            <div
+            <button
+              type="button"
               id="day10-certification-header-card"
-              className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 shadow-xs ${
+              onClick={() => setSelectedCriterionIndex(0)}
+              className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 shadow-xs cursor-pointer group ${
                 day10Audit.isReady
-                  ? "bg-gradient-to-r from-emerald-50 via-white to-emerald-50/50 border-emerald-200/90"
-                  : "bg-gradient-to-r from-rose-50 via-white to-amber-50/40 border-rose-200/90"
+                  ? "bg-gradient-to-r from-emerald-50 via-white to-emerald-50/50 border-emerald-200/90 hover:border-emerald-400"
+                  : "bg-gradient-to-r from-rose-50 via-white to-amber-50/40 border-rose-200/90 hover:border-rose-400"
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -504,9 +530,14 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
                   <Award className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                    {isHindi ? "डे 10 कमर्शियल सर्टिफिकेशन (7 क्राइटेरिया)" : "Day 10 Commercial Certification (7 Criteria)"}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                      {isHindi ? "डे 10 कमर्शियल सर्टिफिकेशन (7 क्राइटेरिया)" : "Day 10 Commercial Certification (7 Criteria)"}
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-600 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+                      {isHindi ? "जांचें" : "View Details"}
+                    </span>
+                  </div>
                   <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
                     {isHindi
                       ? "केवल प्रतिशत नहीं — 7 आवश्यक व्यावसायिक मानदंडों का वास्तविक मूल्यांकन"
@@ -516,7 +547,7 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
               </div>
 
               {/* Status Badge with Ready / Not Ready Icon */}
-              <div className="shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center gap-1.5">
                 <div
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-xs ${
                     day10Audit.isReady
@@ -536,22 +567,25 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
                     </>
                   )}
                 </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
               </div>
-            </div>
+            </button>
 
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               {day10Audit.summary}
             </p>
 
-            {/* 7 Criteria Checklist */}
+            {/* 7 Criteria Checklist - Clickable Pop-up Trigger Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {day10Audit.verifiedCriteria.map((crit, idx) => (
-                <div
+                <button
                   key={idx}
-                  className={`p-2.5 rounded-2xl border flex items-start gap-2 ${
+                  type="button"
+                  onClick={() => setSelectedCriterionIndex(idx)}
+                  className={`p-2.5 rounded-2xl border flex items-start gap-2 text-left cursor-pointer transition-all hover:scale-[1.01] active:scale-95 group ${
                     crit.met
-                      ? "bg-slate-50/80 border-slate-200/80 text-slate-800"
-                      : "bg-rose-50/80 border-rose-200/90 text-rose-950"
+                      ? "bg-slate-50/80 hover:bg-emerald-50/40 border-slate-200/80 hover:border-emerald-300 text-slate-800"
+                      : "bg-rose-50/80 hover:bg-rose-100/60 border-rose-200/90 hover:border-rose-300 text-rose-950"
                   }`}
                 >
                   <div className="mt-0.5 shrink-0">
@@ -561,22 +595,36 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
                       <AlertTriangle className="w-4 h-4 text-rose-600" />
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-xs">{crit.name}</div>
-                    <div className="text-[11px] text-slate-500 font-medium">{crit.detail}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs flex items-center justify-between gap-1">
+                      <span className="truncate">{idx + 1}. {crit.name}</span>
+                      <span className="text-[10px] text-purple-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        {isHindi ? "विवरण" : "Check"} →
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium truncate">{crit.detail}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
             {!day10Audit.isReady && day10Audit.unresolvedBlockers.length > 0 && (
-              <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs text-amber-900 font-medium">
-                <div className="font-black text-amber-950 mb-0.5">
-                  {isHindi ? "मुख्य रुकावट → आवश्यक अगला कदम:" : "Main blocker → Required next action:"}
-                </div>
+              <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs text-amber-900 font-medium flex items-center justify-between gap-2">
                 <div>
-                  {day10Audit.unresolvedBlockers[0]} • {day10Audit.recommendedAction}
+                  <div className="font-black text-amber-950 mb-0.5">
+                    {isHindi ? "मुख्य रुकावट → आवश्यक अगला कदम:" : "Main blocker → Required next action:"}
+                  </div>
+                  <div>
+                    {day10Audit.unresolvedBlockers[0]} • {day10Audit.recommendedAction}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCriterionIndex(0)}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-200/80 hover:bg-amber-300/80 text-amber-950 text-[11px] font-bold shrink-0 cursor-pointer"
+                >
+                  {isHindi ? "जांचें" : "Audit Tab"}
+                </button>
               </div>
             )}
           </div>
@@ -784,6 +832,364 @@ export const JobReadyHumanFigure: React.FC<JobReadyHumanFigureProps> = ({
               {isHindi ? "पूर्ण" : "Done"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* POP-UP TAB MODAL 1: FOUR PILLARS DETAILED TAB POPUP           */}
+      {/* ------------------------------------------------------------- */}
+      {activePillarModal !== null && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-[28px] max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#7025fb] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                    {isHindi ? "4 मुख्य स्तंभ" : "4 Core Pillars"}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">• Interactive Tab</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                  {isHindi ? "लर्निंग एवं स्किल पिलर विवरण" : "Readiness Pillar Details"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePillarModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pillar Tab Selector Bar */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl overflow-x-auto no-scrollbar">
+              {categories.map((cat) => {
+                const isActive = activePillarModal === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActivePillarModal(cat.id)}
+                    className={`flex-1 min-w-[90px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+                      isActive
+                        ? "bg-[#7025fb] text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    }`}
+                  >
+                    <span>{isHindi ? cat.titleHi : cat.title}</span>
+                    <span className={`text-[10px] px-1 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"}`}>
+                      {cat.weight}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Pillar Tab View Content */}
+            {(() => {
+              const currentCat = categories.find((c) => c.id === activePillarModal) || categories[0];
+              const scorePct = Math.round(currentCat.ratio * currentCat.weight);
+              const totalPct = Math.round(currentCat.ratio * 100);
+
+              // Detailed Sub-items based on Pillar ID
+              const subItems =
+                currentCat.id === "learning"
+                  ? [
+                      { title: isHindi ? "10 थ्योरी व वीडियो मॉड्यूल" : "10 Theory & LMS Video Modules", detail: `${modulesCompleted}/10 Completed`, met: modulesCompleted >= 10, icon: "BookOpen" },
+                      { title: isHindi ? "डार्क स्टोर लेआउट व शेल्फ कोऑर्डिनेट मैप" : "Dark Store Aisle Layout Coordinates", detail: "Interactive Map Exposure Verified", met: currentDay >= 2, icon: "MapPin" },
+                      { title: isHindi ? "पैकेजिंग और कोल्ड चैन सुरक्षा नियम" : "Product Variants & Cold Chain Safety Rules", detail: "Quality SOP Certified", met: currentDay >= 3, icon: "ShieldCheck" },
+                      { title: isHindi ? "दैनिक क्विज और ज्ञान मूल्यांकन" : "Daily Knowledge Assessment Quiz", detail: `Avg Quiz Score: ${quizAvg}%`, met: quizAvg >= 80, icon: "Award" },
+                    ]
+                  : currentCat.id === "practice"
+                  ? [
+                      { title: isHindi ? "फ्लोर आयल और रैक्स सर्च प्रैक्टिस" : "Aisle Search & Rack Navigation Drills", detail: `${practiceCompleted}/${practiceTotal} Floor Drills Done`, met: practiceCompleted >= 5, icon: "Target" },
+                      { title: isHindi ? "बारकोड स्कैनर डिवाइस कोऑर्डिनेट स्पीड" : "Barcode Scanner Terminal Speed", detail: "Scan Latency < 1.2s", met: currentDay >= 3, icon: "Zap" },
+                      { title: isHindi ? "मल्टी-आइटम पिकिंग व टोट सॉर्टिंग" : "Multi-Item Pick & Tote Sorting", detail: "Multi-order Batching Verified", met: currentDay >= 4, icon: "PackageCheck" },
+                      { title: isHindi ? "स्टेजिंग एरिया व ट्रॉली ट्रांसफर" : "Physical Staging & Trolley Transfer", detail: "Floor Logistics Practice Completed", met: currentDay >= 4, icon: "TrendingUp" },
+                    ]
+                  : currentCat.id === "simulation"
+                  ? [
+                      { title: isHindi ? "टर्मिनल पिकिंग सिम्युलेटर लैब" : "Terminal Order Simulator Drills", detail: `${simCompleted}/${simTotal} Mock Orders Completed`, met: simCompleted >= 4, icon: "FlaskConical" },
+                      { title: isHindi ? "पेरिसेबल व टेम्परेचर संवेदनशील उत्पाद" : "Cold Chain & Perishable Temp Lab", detail: "Expiry & Quality Check Passed", met: currentDay >= 3, icon: "Cpu" },
+                      { title: isHindi ? "10 मिनट एक्सप्रेस पिकिंग रश" : "10-Min Express Fulfillment Rush", detail: "SLA Speed Simulation", met: currentDay >= 4, icon: "Zap" },
+                      { title: isHindi ? "स्टॉक न होने पर एक्सेप्शन रिपोर्टिंग" : "Out-of-Stock Exception Handling", detail: "Item Missing Recovery Workflow", met: currentDay >= 4, icon: "AlertTriangle" },
+                    ]
+                  : [
+                      { title: isHindi ? "शिफ्ट सुपरवाइजर ऑब्जर्वेशन टेस्ट" : "Shift Supervisor Observational Test", detail: `${assessCompleted}/${assessTotal} Assessments Cleared`, met: assessCompleted >= 2, icon: "Mic" },
+                      { title: isHindi ? "सोलो शिफ्ट पिकिंग स्पीड टेस्ट" : "Solo SLA Pick Rate Audit", detail: "Target SLA Pace Evaluation", met: currentDay >= 5, icon: "FileCheck2" },
+                      { title: isHindi ? "स्कैनिंग शुद्धता और शून्य मिस्पिक जांच" : "Scan Accuracy Floor Verification", detail: "Mispick Rate < 2%", met: true, icon: "CheckCircle2" },
+                    ];
+
+              return (
+                <div className="space-y-4">
+                  {/* Banner Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-white to-purple-50/50 border border-purple-200/80 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#7025fb] text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
+                        {currentCat.icon}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">
+                          {isHindi ? currentCat.titleHi : currentCat.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {isHindi ? "कुल वेटेज" : "Overall Weight"}: {currentCat.weight}% • {currentCat.completedCount}/{currentCat.totalCount} {isHindi ? "पूर्ण" : "done"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xl font-black text-[#7025fb]">{scorePct}%</div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase">{totalPct}% {isHindi ? "प्रगति" : "Score"}</div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span>{isHindi ? "स्तंभ पूर्णता स्तर" : "Pillar Completion Level"}</span>
+                      <span className="text-[#7025fb]">{totalPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                      <div
+                        className="h-full rounded-full bg-[#7025fb] transition-all duration-500"
+                        style={{ width: `${totalPct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sub-items List */}
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      {isHindi ? "इस पिलर की जांच सूची व सबूत:" : "Verified Operational Components:"}
+                    </h5>
+                    <div className="space-y-2">
+                      {subItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-colors ${
+                            item.met
+                              ? "bg-slate-50/80 border-slate-200/80 text-slate-900"
+                              : "bg-amber-50/60 border-amber-200/80 text-amber-950"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="shrink-0">
+                              {item.met ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-50" />
+                              ) : (
+                                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold truncate">{item.title}</div>
+                              <div className="text-[11px] text-slate-500 font-medium truncate">{item.detail}</div>
+                            </div>
+                          </div>
+
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            item.met ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"
+                          }`}>
+                            {item.met ? (isHindi ? "सत्यापित" : "Verified") : (isHindi ? "प्रगति पर" : "In Progress")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <div className="text-[11px] text-slate-500 font-medium">
+                {isHindi ? "वास्तविक कार्य संकेतों से संचालित" : "Grounded in real floor work signals"}
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePillarModal(null)}
+                className="px-5 py-2 rounded-xl bg-[#7025fb] text-white text-xs font-bold shadow-md shadow-purple-500/20 active:scale-95 transition-transform cursor-pointer"
+              >
+                {isHindi ? "बंद करें" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* POP-UP TAB MODAL 2: SEVEN CRITERIA DETAILED TAB POPUP         */}
+      {/* ------------------------------------------------------------- */}
+      {selectedCriterionIndex !== null && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          {(() => {
+            const day10Audit = evaluateDay10Outcome(newHire);
+            const verifiedList = day10Audit.verifiedCriteria;
+            const currentCriterion = verifiedList[selectedCriterionIndex] || verifiedList[0];
+
+            return (
+              <div className="bg-white rounded-[28px] max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                        {isHindi ? "7 क्राइटेरिया ऑदिट" : "7 Commercial Criteria Audit"}
+                      </span>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                        day10Audit.isReady ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-rose-100 text-rose-800 border-rose-300"
+                      }`}>
+                        {day10Audit.isReady ? (isHindi ? "जॉब रेडी" : "JOB READY") : (isHindi ? "नॉट रेडी" : "NOT READY")}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                      {isHindi ? "डे 10 व्यावसायिक तत्परता मानदंड विवरण" : "Day 10 Commercial Certification Criteria"}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCriterionIndex(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Horizontal Tab Bar for 7 Criteria */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl overflow-x-auto no-scrollbar">
+                  {verifiedList.map((crit, idx) => {
+                    const isActive = selectedCriterionIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedCriterionIndex(idx)}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                          isActive
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${crit.met ? "bg-emerald-400" : "bg-rose-400"}`} />
+                        <span>#{idx + 1}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Criterion Details View */}
+                <div className="space-y-4">
+                  {/* Status Banner */}
+                  <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
+                    currentCriterion.met
+                      ? "bg-emerald-50/80 border-emerald-200 text-emerald-950"
+                      : "bg-rose-50/80 border-rose-200 text-rose-950"
+                  }`}>
+                    <div className="mt-0.5 shrink-0">
+                      {currentCriterion.met ? (
+                        <CheckCircle2 className="w-6 h-6 text-emerald-600 fill-emerald-100" />
+                      ) : (
+                        <AlertTriangle className="w-6 h-6 text-rose-600 fill-rose-100" />
+                      )}
+                    </div>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-black tracking-tight">
+                          Criterion #{selectedCriterionIndex + 1}: {currentCriterion.name}
+                        </h4>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 ${
+                          currentCriterion.met ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-rose-100 text-rose-800 border-rose-300"
+                        }`}>
+                          {currentCriterion.met ? (isHindi ? "शर्त पूरी" : "MET") : (isHindi ? "रुकावट" : "BLOCKER")}
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium opacity-90 leading-relaxed">
+                        {currentCriterion.detail}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Requirements & Evidence Card */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3 text-xs">
+                    <div className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+                      {isHindi ? "ऑपरेशन्स मानदंड सबूत व स्रोत:" : "Operational Requirements & Telemetry Source:"}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-3 bg-white rounded-xl border border-slate-200/70">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">{isHindi ? "आवश्यक मानक" : "Commercial Standard"}</div>
+                        <div className="text-xs font-bold text-slate-800 mt-0.5">
+                          {selectedCriterionIndex === 0 && "10 Foundation Modules"}
+                          {selectedCriterionIndex === 1 && "≥18/20 Floor Capabilities"}
+                          {selectedCriterionIndex === 2 && "≥50 picks/hr (Dark Store)"}
+                          {selectedCriterionIndex === 3 && "≥98.0% Scan Accuracy"}
+                          {selectedCriterionIndex === 4 && "≤1 Help Request / Shift"}
+                          {selectedCriterionIndex === 5 && "Zero Safety & PPE Violations"}
+                          {selectedCriterionIndex === 6 && "No Active Floor Blockers"}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200/70">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">{isHindi ? "सत्यापन स्रोत" : "Evidence Source"}</div>
+                        <div className="text-xs font-bold text-slate-800 mt-0.5">
+                          {selectedCriterionIndex === 0 && "LMS Video Progress Ledger"}
+                          {selectedCriterionIndex === 1 && "Demonstrated Capability State"}
+                          {selectedCriterionIndex === 2 && "Work Telemetry Pick Rate"}
+                          {selectedCriterionIndex === 3 && "Barcode Terminal Scanner Log"}
+                          {selectedCriterionIndex === 4 && "Shift Buddy Call Signal"}
+                          {selectedCriterionIndex === 5 && "Manager Observation & PPE"}
+                          {selectedCriterionIndex === 6 && "Coordination Engine Audit"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-slate-600 leading-relaxed">
+                      <span className="font-bold text-slate-800">{isHindi ? "समीक्षा टिप्पणी:" : "Audit Context:"} </span>
+                      {currentCriterion.met
+                        ? isHindi
+                          ? "ट्रेनी ने इस मानदंड को सफलतापूर्वक पास कर लिया है और यह स्वतंत्र ऑपरेशंस के लिए पूरी तरह से तैयार है।"
+                          : "Learner has successfully demonstrated compliance with this condition for autonomous shift work."
+                        : isHindi
+                          ? `ट्रेनी का वर्तमान प्रदर्शन इस मानदंड को पूरा नहीं करता है। सिफारिश की जाती है: ${day10Audit.recommendedAction}`
+                          : `Learner does not meet this threshold. Recommended action: ${day10Audit.recommendedAction}`}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={selectedCriterionIndex === 0}
+                      onClick={() => setSelectedCriterionIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : 0))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      ← {isHindi ? "पिछला" : "Prev"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedCriterionIndex === verifiedList.length - 1}
+                      onClick={() => setSelectedCriterionIndex((prev) => (prev !== null && prev < verifiedList.length - 1 ? prev + 1 : verifiedList.length - 1))}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isHindi ? "अगला" : "Next"} →
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCriterionIndex(null)}
+                    className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-md active:scale-95 transition-transform cursor-pointer"
+                  >
+                    {isHindi ? "पूर्ण" : "Done"}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </section>

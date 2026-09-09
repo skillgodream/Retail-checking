@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { NewHire } from "../types";
 import { LearnerSection } from "./FloatingGlassMenu";
+import { assessReadiness, determineAdaptiveCurrentPlan } from "../services/intelligence";
 
 interface TodaysGoalLandingViewProps {
   newHire: NewHire;
@@ -66,7 +67,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   onOpenBuddy,
 }) => {
   // Role selector dropdown state
-  const [selectedRole, setSelectedRole] = useState<string>("Dark Store Picker • Zone A");
+  const [selectedRole, setSelectedRole] = useState<string>("Retail Cashier • Till 1");
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState<boolean>(false);
 
   // Expandable card state (Card 1 expanded by default for instant onboarding clarity)
@@ -89,10 +90,10 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   // Authoritative live career readiness score calculation
   const baseReadiness =
     typeof newHire.overallReadinessScore === "number"
-      ? newHire.overallReadinessScore <= 1
-        ? Math.round(newHire.overallReadinessScore * 100)
-        : Math.round(newHire.overallReadinessScore)
-      : Math.round((newHire.rampProgress || 0.74) * 100);
+      ? (newHire.overallReadinessScore <= 1
+          ? Math.round(newHire.overallReadinessScore * 100)
+          : Math.round(newHire.overallReadinessScore))
+      : assessReadiness(newHire.capabilities || {}, newHire);
 
   // Compute live readiness dynamically based on completed goal cards
   const bonusPoints = Object.entries(completedCardIds).reduce((sum, [id, done]) => {
@@ -108,103 +109,96 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   const liveReadinessPct = Math.min(100, baseReadiness + bonusPoints);
   const completedCount = Object.values(completedCardIds).filter(Boolean).length;
 
-  // The 5 streamlined, sequential target cards
+  // Authoritative 3D adaptive current plan from Dean & intelligence engine
+  const adaptivePlan = determineAdaptiveCurrentPlan(newHire);
+  const buddyFirstName = (newHire.buddy || "Vikram").split(" ")[0];
+  const supervisorFirstName = (newHire.supervisor || "Suresh").split(" ")[0];
+
+  // The 5 streamlined, sequential target cards — dynamically synced with Dean's active plan & recommendations
   const GOAL_CARDS: GoalCard[] = [
     {
       id: "card_1",
       stepNumber: 1,
-      title: "Fast Barcode Scanner Alignment & Sweep",
-      titleHi: "तेज़ बारकोड स्कैनर अलाइनमेंट व स्वीप तकनीक",
-      tag: "Speed & Accuracy",
-      tagHi: "स्पीड व एक्यूरेसी",
-      duration: "12 min",
+      title: `${adaptivePlan.development.focusCapabilityName} (Dean's Priority)`,
+      titleHi: `${adaptivePlan.development.focusCapabilityName} (डीन की मुख्य प्राथमिकता)`,
+      tag: adaptivePlan.development.developmentType || "Dean Recommended Practice",
+      tagHi: adaptivePlan.development.developmentType || "डीन द्वारा अनुशंसित अभ्यास",
+      duration: `${adaptivePlan.development.durationMinutes || 12} min`,
       readinessPoints: 3,
-      whyText:
-        "Floor sensors logged a 14-second scan delay in Aisle 6 due to barcode angle reflection and red-light mis-scans.",
-      whyTextHi:
-        "आइसल 6 में स्कैनर के गलत एंगल और रिफ्लेक्शन की वजह से 14 सेकंड की देरी दर्ज हुई।",
-      whatText:
-        "Master the 45° optical sweep technique and scan 10 consecutive test totes with zero error beeps.",
-      whatTextHi:
-        "स्कैनर को 45° एंगल पर पकड़ने की तकनीक सीखें और बिना एरर के लगातार 10 बारकोड स्कैन करें।",
+      whyText: adaptivePlan.deanRationale,
+      whyTextHi: `वर्क सिग्नल विश्लेषण: ${adaptivePlan.deanRationale}`,
+      whatText: `Master ${adaptivePlan.development.focusCapabilityName} at ${adaptivePlan.productiveWork.zoneOrAisles} through ${adaptivePlan.development.actionDescription}.`,
+      whatTextHi: `${adaptivePlan.productiveWork.zoneOrAisles} पर ${adaptivePlan.development.focusCapabilityName} में निपुणता हासिल करें।`,
       actionBullets: [
         {
-          en: "Watch the 2-minute demonstration clip on the 45° optical sweep.",
-          hi: "45° ऑप्टिकल स्वीप का 2 मिनट का वीडियो प्रदर्शन देखें।",
+          en: `Review SOP and walkthrough for ${adaptivePlan.development.focusCapabilityName}.`,
+          hi: `${adaptivePlan.development.focusCapabilityName} की एसओपी गाइड देखें।`,
         },
         {
-          en: "Calibrate your ring scanner on the test shelf (Tote #4).",
-          hi: "टेस्ट शेल्फ (टोट #4) पर अपने रिंग स्कैनर को कैलिब्रेट करें।",
+          en: `Calibrate setup and practice at ${adaptivePlan.productiveWork.zoneOrAisles}.`,
+          hi: `${adaptivePlan.productiveWork.zoneOrAisles} पर सेटिंग्स और अलाइनमेंट जांचें।`,
         },
         {
-          en: "Complete 10 test scans with instant green-light confirmation.",
-          hi: "हरी लाइट पुष्टि के साथ 10 टेस्ट स्कैन पूरे करें।",
+          en: "Complete 10 test trials with instant green-light confirmation.",
+          hi: "बिना किसी त्रुटि के 10 टेस्ट ट्रायल्स पूरे करें।",
         },
       ],
-      videoTitle: "Fast Barcode Scanner 45° Sweep Technique (2 min)",
-      videoTitleHi: "तेज़ बारकोड 45° स्वीप तकनीक वीडियो (2 मिनट)",
+      videoTitle: `${adaptivePlan.development.focusCapabilityName} - Video SOP Guide`,
+      videoTitleHi: `${adaptivePlan.development.focusCapabilityName} - वीडियो एसओपी मार्गदर्शिका`,
       videoDuration: "2:15 min",
       videoThumbnailUrl:
         "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=800&auto=format&fit=crop",
       videoTips: [
         {
-          en: "Keep 6 to 8 inches distance from the label.",
-          hi: "लेबल से हमेशा 6 से 8 इंच की दूरी बनाए रखें।",
+          en: "Keep proper distance and steady laser alignment.",
+          hi: "लेबल से सही दूरी और लेजर बीम का कोण बनाए रखें।",
         },
         {
-          en: "Sweep top-to-bottom across the barcode stripes.",
-          hi: "बारकोड की धारियों पर ऊपर से नीचे की तरफ बीम घुमाएं।",
-        },
-        {
-          en: "Keep wrists level to prevent barcode glare from overhead lights.",
-          hi: "छत की लाइट के रिफ्लेक्शन से बचने के लिए कलाई सीधी रखें।",
+          en: "Keep wrists level to prevent reflection delays.",
+          hi: "रिफ्लेक्शन से बचने के लिए कलाई सीधी रखें।",
         },
       ],
     },
     {
       id: "card_2",
       stepNumber: 2,
-      title: "Aisle 4–8 Route Walkthrough with Buddy Vikram",
-      titleHi: "आइसल 4-8 रूट वॉकथ्रू (सीनियर साथी विक्रम के साथ)",
-      tag: "Floor Navigation",
-      tagHi: "फ्लोर नेविगेशन",
+      title: `Hands-On Floor Coaching with Senior Buddy ${buddyFirstName}`,
+      titleHi: `सीनियर साथी ${buddyFirstName} के साथ फ्लोर प्रैक्टिस वॉकथ्रू`,
+      tag: "Buddy Floor Drill",
+      tagHi: "साथी के साथ अभ्यास",
       duration: "15 min",
       readinessPoints: 3,
-      whyText:
-        "Heavy beverage & pantry orders in Aisles 4-8 showed backtracking, adding 35 meters of unnecessary cart walking.",
-      whyTextHi:
-        "आइसल 4-8 में भारी सामान और पेय पदार्थ उठाते समय बार-बार पीछे मुड़ने से समय नष्ट हो रहा था।",
-      whatText:
-        "Walk the single-pass route with Buddy Vikram to memorize fast rack coordinates and one-way cart flow.",
-      whatTextHi:
-        "साथी विक्रम के साथ चलकर एक तरफा कार्ट रूट और रैक्स के लोकेशन कोड याद करें।",
+      whyText: `Target floor pace of ${adaptivePlan.productiveWork.targetPacing} UPH requires hands-on mentoring at ${adaptivePlan.productiveWork.zoneOrAisles}.`,
+      whyTextHi: `${adaptivePlan.productiveWork.zoneOrAisles} पर ${adaptivePlan.productiveWork.targetPacing} UPH की गति के लिए साथी मार्गदर्शन आवश्यक है।`,
+      whatText: `Walk through ${adaptivePlan.productiveWork.zoneOrAisles} with Buddy ${buddyFirstName} to master item lookup and scale calibration.`,
+      whatTextHi: `साथी ${buddyFirstName} के साथ मिलकर ${adaptivePlan.productiveWork.zoneOrAisles} पर तेजी से काम करना सीखें।`,
       actionBullets: [
         {
-          en: "Meet Senior Buddy Vikram at the Zone A dispatch staging bay.",
-          hi: "ज़ोन A डिस्पैच बे पर सीनियर साथी विक्रम से मिलें।",
+          en: `Meet Senior Buddy ${buddyFirstName} at ${adaptivePlan.productiveWork.zoneOrAisles}.`,
+          hi: `${adaptivePlan.productiveWork.zoneOrAisles} पर साथी ${buddyFirstName} से मिलें।`,
         },
         {
-          en: "Memorize the 3 high-velocity bin locations in Aisles 4 & 6.",
-          hi: "आइसल 4 और 6 में सबसे ज्यादा बिकने वाले 3 रैक कोड याद करें।",
+          en: "Memorize short-key codes and digital scale calibration.",
+          hi: "शॉर्ट-की कोड और डिजिटल तराजू सेटिंग्स याद करें।",
         },
         {
-          en: "Practice one-direction cart movement without blocking aisles.",
-          hi: "रास्ते में रुकावट डाले बिना वन-वे कार्ट मूवमेंट का अभ्यास करें।",
+          en: "Run 5 live simulated transactions with buddy observation.",
+          hi: "साथी की देखरेख में 5 लाइव ट्रायल्स पूरे करें।",
         },
       ],
-      videoTitle: "Aisle 4–8 Fastest Single-Pass Routing Guide",
-      videoTitleHi: "आइसल 4-8 सिंगल-पास फास्टेस्ट रूट गाइड",
+      videoTitle: `Buddy ${buddyFirstName} Floor Practice Guide`,
+      videoTitleHi: `साथी ${buddyFirstName} फ्लोर प्रैक्टिस वीडियो`,
       videoDuration: "3:10 min",
       videoThumbnailUrl:
         "https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=800&auto=format&fit=crop",
       videoTips: [
         {
-          en: "Always stage cart facing outbound towards pack station.",
-          hi: "कार्ट का मुंह हमेशा पैक स्टेशन की तरफ रखें।",
+          en: "Use 4-digit short-keys for instant billing.",
+          hi: "तुरंत काम के लिए 4-अंकीय शॉर्ट-की का उपयोग करें।",
         },
         {
-          en: "Pick heavy beverages first at bottom of tote, chips on top.",
-          hi: "भारी बोतलें हमेशा टोट के नीचे और चिप्स आदि ऊपर रखें।",
+          en: "Check digital scale zero tare before processing.",
+          hi: "काम शुरू करने से पहले तराजू का शून्य रीसेट जांचें।",
         },
       ],
       isSpecialAction: "buddy_call",
@@ -212,126 +206,106 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
     {
       id: "card_3",
       stepNumber: 3,
-      title: "Cold Chain 90-Second Retrieval Protocol & Tote Seal",
-      titleHi: "कोल्ड चेन 90-सेकंड प्रोटोकॉल व इंसुलेटेड टोट सील",
-      tag: "Quality SOP",
-      tagHi: "क्वालिटी एसओपी",
+      title: `SLA Target Pace (${adaptivePlan.productiveWork.targetPacing} UPH)`,
+      titleHi: `टारगेट स्पीड (${adaptivePlan.productiveWork.targetPacing} UPH)`,
+      tag: "SLA Pace & Accuracy",
+      tagHi: "एसएलए गति व शुद्धता",
       duration: "10 min",
       readinessPoints: 3,
-      whyText:
-        "Quality audit requirement: Dairy and frozen goods must never stay outside temperature control beyond 90 seconds.",
-      whyTextHi:
-        "क्वालिटी नियम: दूध, पनीर व फ्रोजन सामान 90 सेकंड से ज्यादा बिना कूलिंग के नहीं रहना चाहिए।",
-      whatText:
-        "Review the 90-second stopwatch procedure, insert frozen ice sheets, and execute a double-zip thermal seal.",
-      whatTextHi:
-        "90 सेकंड टाइमर का पालन करें, कूलिंग शीट लगाएं और थर्मल बैग की चेन तुरंत बंद करें।",
+      whyText: `Milestone Day ${currentDay} requires sustained pace of ${adaptivePlan.productiveWork.targetPacing} UPH with zero mispicks.`,
+      whyTextHi: `डे ${currentDay} के लिए ${adaptivePlan.productiveWork.targetPacing} UPH की स्पीड और उच्च शुद्धता आवश्यक है।`,
+      whatText: `Execute orders at ${adaptivePlan.productiveWork.zoneOrAisles} maintaining target speed and zero mispicks.`,
+      whatTextHi: `बिना गलती के ${adaptivePlan.productiveWork.targetPacing} UPH की स्पीड हासिल करें।`,
       actionBullets: [
         {
-          en: "Retrieve cold-chain batch barcode from the handheld terminal.",
-          hi: "टर्मिनल पर कोल्ड-चेन बैच बारकोड स्वीकार करें।",
+          en: "Verify item details before final scan confirmation.",
+          hi: "अंतिम पुष्टि से पहले सामान के विवरण की जांच करें।",
         },
         {
-          en: "Pick chilled items inside freezer within the 90-second visual timer.",
-          hi: "90 सेकंड के विज़ुअल टाइमर के अंदर फ्रीजर से सामान निकालें।",
+          en: `Maintain steady rhythm at ${adaptivePlan.productiveWork.zoneOrAisles}.`,
+          hi: `${adaptivePlan.productiveWork.zoneOrAisles} पर लयबद्ध गति बनाए रखें।`,
         },
         {
-          en: "Insert insulated cooling barrier and zip tote tight before moving.",
-          hi: "आगे बढ़ने से पहले इंसुलेटेड बैग में बर्फ की शीट रखकर चेन बंद करें।",
+          en: "Confirm successful completion on customer display.",
+          hi: "स्क्रीन पर सफल एंट्री की पुष्टि करें।",
         },
       ],
-      videoTitle: "Cold Chain 90-Sec Door-to-Tote Demonstration",
-      videoTitleHi: "कोल्ड चेन 90-सेकंड डोर-टू-टोट प्रदर्शन",
+      videoTitle: "SLA Pace & Accuracy Optimization",
+      videoTitleHi: "एसएलए गति और शुद्धता एसओपी",
       videoDuration: "2:40 min",
       videoThumbnailUrl:
         "https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=800&auto=format&fit=crop",
       videoTips: [
         {
-          en: "Prepare open insulated tote BEFORE opening the freezer door.",
-          hi: "फ्रीजर का दरवाजा खोलने से पहले इंसुलेटेड बैग तैयार रखें।",
-        },
-        {
-          en: "Double-check milk carton lids for seal integrity.",
-          hi: "दूध के पैकेट की सील ज़रूर जांच लें।",
+          en: "Keep workspace organized to prevent item confusion.",
+          hi: "काउंटर को व्यवस्थित रखें ताकि कोई भ्रम न हो।",
         },
       ],
     },
     {
       id: "card_4",
       stepNumber: 4,
-      title: "50-Order Live Picking Sprint (Zero Mis-Scans)",
-      titleHi: "50 ऑर्डर लाइव पिकिंग स्प्रिंट (0 मिस-स्कैन लक्ष्य)",
-      tag: "Live Floor Sprint",
-      tagHi: "लाइव फ्लोर स्प्रिंट",
+      title: `Progression Gate: ${adaptivePlan.progressionGate.unlockCriteria}`,
+      titleHi: `प्रगति गेट: ${adaptivePlan.progressionGate.unlockCriteria}`,
+      tag: `Day ${currentDay} Gate`,
+      tagHi: `डे ${currentDay} गेट`,
       duration: "25 min",
       readinessPoints: 4,
-      whyText:
-        "Proves continuous speed & accuracy to elevate your rate from 38 to the 50 picks/hr graduation target.",
-      whyTextHi:
-        "आपकी पिकिंग स्पीड 38 से बढ़ाकर 50 पिक/घंटा के मुख्य बेंचमार्क तक पहुंचाने के लिए यह टेस्ट ज़रूरी है।",
-      whatText:
-        "Run 50 live customer orders using your ring scanner, maintaining 98%+ picking accuracy throughout.",
-      whatTextHi:
-        "रिंग स्कैनर से 50 लाइव ऑर्डर पूरे करें और 98%+ सटीकता बनाए रखें।",
+      whyText: `Unlock condition for Day ${currentDay} milestone: ${adaptivePlan.progressionGate.unlockCriteria}`,
+      whyTextHi: `डे ${currentDay} पास करने की शर्त: ${adaptivePlan.progressionGate.unlockCriteria}`,
+      whatText: `Demonstrate compliance with ${adaptivePlan.progressionGate.unlockCriteria} during live shift operations.`,
+      whatTextHi: `${adaptivePlan.progressionGate.unlockCriteria} का सफलतापूर्वक पालन करें।`,
       actionBullets: [
         {
-          en: "Equip ring-scanner on index finger and strap mobile terminal to wrist.",
-          hi: "तर्जनी उंगली पर रिंग स्कैनर और कलाई पर मोबाइल टर्मिनल लगाएं।",
+          en: "Review safety and quality checklists.",
+          hi: "सुरक्षा व गुणवत्ता नियमों की समीक्षा करें।",
         },
         {
-          en: "Accept batch orders in Zone A and pick items in sequential aisle order.",
-          hi: "ज़ोन A में बैच ऑर्डर स्वीकार करें और लाइन से सामान पिक करें।",
+          en: `Ensure zero active blockers on Day ${currentDay}.`,
+          hi: `डे ${currentDay} पर कोई सक्रिय रुकावट न रहने दें।`,
         },
         {
-          en: "Confirm each bin barcode scan before dropping item into the designated tote.",
-          hi: "सामान टोट में रखने से पहले शेल्फ बारकोड अवश्य स्कैन करें।",
+          en: "Verify supervisor observation approval.",
+          hi: "सुपरवाइजर अवलोकन स्वीकृति प्राप्त करें।",
         },
       ],
-      videoTitle: "Continuous Rhythm Picking & Tote Staging Sprint",
-      videoTitleHi: "निरंतर पिकिंग रिदम और टोट स्टेजिंग गाइड",
+      videoTitle: "Progression Gate Compliance SOP",
+      videoTitleHi: "प्रगति गेट नियम व अनुपालन",
       videoDuration: "3:30 min",
       videoThumbnailUrl:
         "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=800&auto=format&fit=crop",
       videoTips: [
         {
-          en: "Keep eyes on the next bin code while placing the current item.",
-          hi: "सामान बैग में रखते समय ही अगली शेल्फ का नंबर देख लें।",
-        },
-        {
-          en: "Check item weight before lifting to avoid awkward cart balance.",
-          hi: "सामान उठाने से पहले वजन का अंदाज़ा लगाएं।",
+          en: "Double check item counts on multi-item orders.",
+          hi: "मल्टी-आइटम ऑर्डर में संख्या दो बार जांचें।",
         },
       ],
     },
     {
       id: "card_5",
       stepNumber: 5,
-      title: "Shift Check-Out & Voice Reflection",
-      titleHi: "शिफ्ट चेक-आउट और वॉयस रिपोर्ट",
+      title: `Day ${currentDay} Shift Check-Out & Voice Report`,
+      titleHi: `डे ${currentDay} शिफ्ट चेक-आउट और वॉयस रिपोर्ट`,
       tag: "Shift Wrap-up",
       tagHi: "शिफ्ट समापन",
       duration: "5 min",
       readinessPoints: 2,
-      whyText:
-        "Closes your daily learning loop and signals Shift Lead Priya that you met all milestone criteria.",
-      whyTextHi:
-        "दिन भर की प्रगति को सुरक्षित करता है और शिफ्ट लीड प्रिया को आपकी उपलब्धियों की सूचना देता है।",
-      whatText:
-        "Record a quick 30-second voice reflection on what went well and which aisle felt easiest.",
-      whatTextHi:
-        "30 सेकंड का ऑडियो संदेश रिकॉर्ड करें कि आज क्या अच्छा रहा और कौन सा काम सबसे आसान लगा।",
+      whyText: `Closes your Day ${currentDay} learning loop and signals Store Supervisor ${supervisorFirstName} that you met all milestone criteria.`,
+      whyTextHi: `दिन ${currentDay} की प्रगति को सुरक्षित करता है और स्टोर सुपरवाइजर ${supervisorFirstName} को सूचित करता है।`,
+      whatText: `Record a quick 30-second voice reflection on today's shift experience.`,
+      whatTextHi: `30 सेकंड का ऑडियो संदेश रिकॉर्ड करें कि आज का दिन कैसा रहा।`,
       actionBullets: [
         {
-          en: "Review your final picks/hr rate on the live telemetry dial.",
-          hi: "लाइव टेलीमेट्री डायल पर अपनी अंतिम स्पीड देखें।",
+          en: "Review your final items/min scan rate on the telemetry dial.",
+          hi: "लाइव टेलीमेट्री पर अपनी स्पीड की समीक्षा करें।",
         },
         {
-          en: "Record a 30-second audio check-in describing today's floor experience.",
-          hi: "आज के अनुभव पर 30 सेकंड का वॉयस संदेश रिकॉर्ड करें।",
+          en: `Record a 30-second voice update describing today's ${adaptivePlan.productiveWork.zoneOrAisles} experience.`,
+          hi: `आज के ${adaptivePlan.productiveWork.zoneOrAisles} काम पर 30 सेकंड का ऑडियो संदेश रिकॉर्ड करें।`,
         },
         {
-          en: "Lock in today's readiness boost (+11% total potential for Day 3).",
-          hi: "आज की कुल प्रगति (+11% तक) को सुरक्षित करें।",
+          en: `Lock in today's readiness boost for Day ${currentDay}.`,
+          hi: `आज के दिन ${currentDay} की कुल प्रगति सुरक्षित करें।`,
         },
       ],
       videoTitle: "How End-of-Shift Check-Out Boosts Your Career Readiness",
@@ -341,12 +315,12 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
         "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=800&auto=format&fit=crop",
       videoTips: [
         {
-          en: "Mention any out-of-stock bins so night replenishment fixes them.",
-          hi: "यदि किसी शेल्फ पर सामान खत्म था, तो वॉयस में ज़रूर बताएं।",
+          en: "Mention any produce PLU code confusion so supervisor reinforces it.",
+          hi: "यदि किसी कोड में समस्या थी, तो वॉयस में ज़रूर बताएं।",
         },
         {
-          en: "Confirm buddy Vikram assisted with Aisle 4-8 walkthrough.",
-          hi: "पुष्टि करें कि विक्रम भाई ने आपको आइसल 4-8 समझाया।",
+          en: `Confirm buddy ${buddyFirstName} assisted with floor walkthrough.`,
+          hi: `पुष्टि करें कि साथी ${buddyFirstName} ने आपकी मदद की।`,
         },
       ],
       isSpecialAction: "voice_checkin",
@@ -365,11 +339,12 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
     }));
   };
 
-  // Math for circular progress arc matching reference design
+  // Math for circular progress arc matching reference design (Daily progress)
+  const dailyProgressPct = Math.round((completedCount / 5) * 100);
   const radius = 96;
   const center = 130;
   const strokeWidth = 10;
-  const progressRatio = Math.max(0.1, Math.min(1, liveReadinessPct / 100));
+  const progressRatio = Math.max(0.02, Math.min(1, dailyProgressPct / 100));
   const startAngle = -135;
   const totalSweep = 270;
   const currentAngle = startAngle + totalSweep * progressRatio;
@@ -395,10 +370,10 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
   const endNode = polarToCartesian(center, center, radius, currentAngle);
 
   const milestones = [
-    { label: "10%", angle: -135 },
-    { label: "35%", angle: -65 },
-    { label: "65%", angle: 25 },
-    { label: "85%", angle: 85 },
+    { label: "0%", angle: -135 },
+    { label: "25%", angle: -67.5 },
+    { label: "50%", angle: 0 },
+    { label: "75%", angle: 67.5 },
     { label: "100%", angle: 135 },
   ];
 
@@ -415,7 +390,7 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
             <span>CHEIN LIVE</span>
           </span>
           <span className="font-bold tracking-wider">
-            {isHindi ? `दिन ${currentDay} • डार्क स्टोर #104` : `DAY ${currentDay} • STORE #104`}
+            {isHindi ? `दिन ${currentDay} • रिटेल स्टोर #104` : `DAY ${currentDay} • RETAIL TILL #1`}
           </span>
           <span>9:41 AM</span>
         </div>
@@ -484,10 +459,10 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
                 {isHindi ? "भूमिका व क्षेत्र चुनें" : "Select Role & Work Zone"}
               </div>
               {[
-                "Dark Store Picker • Zone A",
-                "Speed Picking • Aisles 4-8",
-                "Cold Chain Specialist • Dairy",
-                "Handheld Scanner Specialist",
+                "Retail Cashier • Till 1",
+                "Express Counter • Fast Basket",
+                "Produce & PLU Specialist",
+                "POS & Digital Payment Pro",
               ].map((role) => (
                 <button
                   key={role}
@@ -578,44 +553,44 @@ export const TodaysGoalLandingView: React.FC<TodaysGoalLandingViewProps> = ({
               })}
             </svg>
 
-            {/* Central percentage readout */}
+            {/* Central percentage readout (Daily Present Day Progress) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pt-2 pointer-events-none">
               <div className="flex items-baseline gap-0.5">
                 <span className="text-5xl font-black text-slate-900 tracking-tighter leading-none">
-                  {liveReadinessPct}
+                  {dailyProgressPct}
                 </span>
                 <span className="text-2xl font-black text-amber-500">%</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">
-                {isHindi ? "करियर रेडीनेस स्कोर" : "Career Readiness"}
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 mt-1">
+                {isHindi ? `आज की प्रगति (शिफ्ट #${currentDay})` : `Day ${currentDay} Daily Progress`}
               </span>
-              <div className="mt-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[10px] font-black text-emerald-700 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{liveReadinessPct >= 85 ? "Target Achieved!" : "Target: 85%"}</span>
+              <div className="mt-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200/80 text-[10px] font-black text-amber-800 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>{completedCount} / 5 {isHindi ? "कदम निष्पादित" : "Steps Completed"}</span>
               </div>
             </div>
           </div>
 
-          {/* Live Progress Bar toward 85% Target */}
-          <div className="w-full mt-1 space-y-1 px-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-amber-500" />
-                <span>{isHindi ? "दैनिक लक्ष्य प्रगति" : "Target Readiness Tracker"}</span>
+          {/* Flat Horizontal Line representing Career % Progress */}
+          <div className="w-full mt-2 space-y-1.5 px-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <span>{isHindi ? "करियर प्रगति (रेडीनेस)" : "Career Readiness %"}</span>
               </span>
-              <span className="text-[#7025fb] font-mono font-black">
-                {liveReadinessPct}% / 85%
+              <span className="text-[#7025fb] font-mono font-black text-xs">
+                {liveReadinessPct}% / 100%
               </span>
             </div>
-            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
               <div
-                className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-[#7025fb] rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (liveReadinessPct / 85) * 100)}%` }}
+                className="h-full bg-gradient-to-r from-amber-400 via-[#7025fb] to-emerald-500 rounded-full transition-all duration-500 shadow-2xs"
+                style={{ width: `${Math.min(100, liveReadinessPct)}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 font-medium pt-0.5">
-              <span>{completedCount} of 5 Steps Finished</span>
-              <span>+{bonusPoints}% Earned Today</span>
+              <span>{isHindi ? `शिफ्ट #${currentDay} करियर स्कोर` : `Overall Career Readiness`}</span>
+              <span className="font-bold text-emerald-600">+{bonusPoints}% {isHindi ? "आज अर्जित" : "Earned Today"}</span>
             </div>
           </div>
         </div>

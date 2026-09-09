@@ -21,30 +21,46 @@ interface CircularDialWidgetProps {
   onAisleMap?: () => void;
   onOpenTarget?: () => void;
   isHindi?: boolean;
+  roleId?: string;
 }
 
 export type DialMode = "speed" | "accuracy" | "readiness";
 
 export const CircularDialWidget: React.FC<CircularDialWidgetProps> = ({
-  pickRate = 35,
-  targetPickRate = 50,
+  pickRate = 14,
+  targetPickRate = 20,
   accuracyRate = 98,
-  readinessScore = 74,
+  readinessScore = 0,
   onCallBuddy,
   onScannerFix,
   onAisleMap,
   onOpenTarget,
   isHindi = false,
+  roleId,
 }) => {
   const [mode, setMode] = useState<DialMode>("speed");
   const [terminalConnected, setTerminalConnected] = useState<boolean>(true);
   const [activeCircleAction, setActiveCircleAction] = useState<string>("gauge");
 
+  const isDarkStore = roleId === "dark_store_picker";
+
   // Determine value and max for the dial based on mode
   let currentValue = pickRate;
   let targetValue = targetPickRate;
-  let unit = isHindi ? "सामान/घंटा" : "picks/hr";
-  let modeLabel = isHindi ? "पिक स्पीड" : "Pick Speed";
+  let unit = isHindi
+    ? isDarkStore
+      ? "सामान/घंटा"
+      : "आइटम/मिनट"
+    : isDarkStore
+    ? "picks/hr"
+    : "items/min";
+  let modeLabel = isHindi
+    ? isDarkStore
+      ? "पिक स्पीड"
+      : "स्कैन स्पीड"
+    : isDarkStore
+    ? "Pick Speed"
+    : "Scan Rate";
   let statusBadge = pickRate >= targetPickRate ? "Target Met" : "Ramping Steady";
 
   if (mode === "accuracy") {
@@ -133,7 +149,7 @@ export const CircularDialWidget: React.FC<CircularDialWidgetProps> = ({
             setActiveCircleAction("light");
             if (onAisleMap) onAisleMap();
           }}
-          title={isHindi ? "आइसल मैप" : "Aisle Guide"}
+          title={isHindi ? (isDarkStore ? "आइसल मैप" : "रिटेल स्टोर ज़ोन") : (isDarkStore ? "Aisle Guide" : "Checkout Zones")}
           className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
             activeCircleAction === "light"
               ? "bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white border-transparent shadow-md shadow-purple-500/30 scale-105"

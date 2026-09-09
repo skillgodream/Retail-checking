@@ -15,6 +15,8 @@ import {
   Milestone,
 } from "lucide-react";
 import { Logo } from "./Logo";
+import { LearnerProfileSelector } from "./LearnerProfileSelector";
+import { NewHire } from "../types";
 export type ActiveTab = "new_hire" | "manager" | "organization" | "skill_journey";
 
 interface HeaderProps {
@@ -40,6 +42,9 @@ interface HeaderProps {
   isHomeScreen?: boolean;
   learnerName?: string;
   buddyName?: string;
+  newHires?: NewHire[];
+  activeHireId?: string;
+  onSelectHire?: (hireId: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -62,6 +67,9 @@ export const Header: React.FC<HeaderProps> = ({
   isHomeScreen = true,
   learnerName = "Rahul",
   buddyName = "Vikram",
+  newHires,
+  activeHireId,
+  onSelectHire,
 }) => {
   const [isEyeMenuOpen, setIsEyeMenuOpen] = useState(false);
   const eyeMenuRef = useRef<HTMLDivElement>(null);
@@ -137,8 +145,19 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Right Action Icons: Language button visible everywhere, menu only on home screen */}
+          {/* Right Action Icons: Learner Selector, Language button, and Menu */}
           <div className="flex items-center gap-1.5 shrink-0">
+
+            {/* Global Learner Profile Selector Dropdown */}
+            {newHires && activeHireId && onSelectHire && (
+              <LearnerProfileSelector
+                newHires={newHires}
+                activeHireId={activeHireId}
+                onSelectHire={onSelectHire}
+                isHindi={isHindi}
+                variant="light"
+              />
+            )}
 
             {/* Language Toggle Button (Hindi / English) placed near Eye Icon */}
             {onToggleLanguage && (
@@ -156,273 +175,271 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Top Bar Menu Items (Client Demo & Eye Menu) - ONLY visible on Home Screen */}
-            {(isHomeScreen || isBackstageActive) && (
+            {/* Top Bar Menu Items (Client Demo & Eye Menu) - STRICTLY visible ONLY on Manager / Store Ops / Diagnostic screens */}
+            {isBackstageActive && (
               <>
                 {/* Client Demo Story Quick Launcher */}
-            {onOpenClientDemo && (
-              <button
-                id="header-client-demo-btn"
-                onClick={onOpenClientDemo}
-                title="Client Demo Story & Closed-Loop Scenarios"
-                aria-label="Client Demo Story"
-                className="px-2.5 py-1.5 rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-xs font-black text-xs"
-              >
-                <span className="text-xs">🎯</span>
-                <span className="text-[11px] font-black tracking-tight hidden sm:inline">Demo</span>
-              </button>
-            )}
-
-            {/* Eye Icon Button & Exclusive Backstage Dropdown Menu */}
-            <div className="relative" ref={eyeMenuRef}>
-              <button
-                id="header-eye-btn"
-                onClick={() => setIsEyeMenuOpen((prev) => !prev)}
-                title="Management Views & Loop Flow"
-                aria-label="Management Views & Loop Flow"
-                aria-expanded={isEyeMenuOpen}
-                className={`p-2 rounded-2xl transition-all cursor-pointer flex items-center justify-center relative active:scale-95 ${
-                  isEyeMenuOpen || isBackstageActive
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-500/25 ring-2 ring-violet-400/40"
-                    : "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200"
-                }`}
-              >
-                <Eye className="w-4 h-4 stroke-[2.2]" />
-                {/* Alert badge if any hires need attention or are at risk */}
-                {(needsAttentionCount > 0 || atRiskCount > 0) && !isEyeMenuOpen && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-fuchsia-500 ring-2 ring-white animate-pulse" />
+                {onOpenClientDemo && (
+                  <button
+                    id="header-client-demo-btn"
+                    onClick={onOpenClientDemo}
+                    title="Client Demo Story & Closed-Loop Scenarios"
+                    aria-label="Client Demo Story"
+                    className="px-2.5 py-1.5 rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-xs font-black text-xs"
+                  >
+                    <span className="text-xs">🎯</span>
+                    <span className="text-[11px] font-black tracking-tight hidden sm:inline">Demo</span>
+                  </button>
                 )}
-              </button>
 
-              {/* Backstage Quick Popover Menu */}
-              {isEyeMenuOpen && (
-                <div
-                  id="header-eye-popover"
-                  className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/90 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
-                >
-                  <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      Operations Hub
-                    </span>
-                    <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">
-                      Admin Access
-                    </span>
-                  </div>
-
-                  <div className="p-1 space-y-1">
-                    {/* Item 1: Supervisor */}
-                    <button
-                      id="eye-menu-supervisor"
-                      onClick={() => handleSelectTab("manager")}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        activeTab === "manager"
-                          ? "bg-violet-50 text-violet-700"
-                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`p-1.5 rounded-lg ${
-                            activeTab === "manager"
-                              ? "bg-violet-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          <User className="w-3.5 h-3.5 stroke-[2.2]" />
-                        </div>
-                        <div className="text-left">
-                          <div className="leading-tight">Supervisor</div>
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            Floor triage & support
-                          </div>
-                        </div>
-                      </div>
-                      {(atRiskCount > 0 || needsAttentionCount > 0) && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-fuchsia-500 text-white">
-                          {needsAttentionCount + atRiskCount}
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Item 2: Store Ops */}
-                    <button
-                      id="eye-menu-store-ops"
-                      onClick={() => handleSelectTab("organization")}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        activeTab === "organization"
-                          ? "bg-violet-50 text-violet-700"
-                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`p-1.5 rounded-lg ${
-                            activeTab === "organization"
-                              ? "bg-violet-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          <Zap className="w-3.5 h-3.5 stroke-[2.2]" />
-                        </div>
-                        <div className="text-left">
-                          <div className="leading-tight">Store Ops</div>
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            Cohort ramp health
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-
-                    {/* Item 3: 10-Day Skill Journey */}
-                    <button
-                      id="eye-menu-skill-journey"
-                      onClick={() => handleSelectTab("skill_journey")}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        activeTab === "skill_journey"
-                          ? "bg-violet-50 text-violet-700"
-                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`p-1.5 rounded-lg ${
-                            activeTab === "skill_journey"
-                              ? "bg-violet-600 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          <Milestone className="w-3.5 h-3.5 stroke-[2.2]" />
-                        </div>
-                        <div className="text-left">
-                          <div className="leading-tight">10-Day Skill Journey</div>
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            Where learner should be vs is
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-
-                    {/* Item 4: Loop Flow */}
-                    <button
-                      id="eye-menu-loop-flow"
-                      onClick={handleSelectLoop}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-                          <Sliders className="w-3.5 h-3.5 stroke-[2.2]" />
-                        </div>
-                        <div className="text-left">
-                          <div className="leading-tight">Loop Flow</div>
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            6-stage intelligence cycle
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">
-                        Inspect
-                      </span>
-                    </button>
-
-                    {/* Item 4: Onboarding Welcome Screen */}
-                    {onOpenOnboarding && (
-                      <button
-                        id="eye-menu-onboarding"
-                        onClick={() => {
-                          onOpenOnboarding();
-                          setIsEyeMenuOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600">
-                            <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </div>
-                          <div className="text-left">
-                            <div className="leading-tight">Onboarding Page</div>
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              Start my day landing
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
-                          Intro
-                        </span>
-                      </button>
+                {/* Eye Icon Button & Exclusive Backstage Dropdown Menu */}
+                <div className="relative" ref={eyeMenuRef}>
+                  <button
+                    id="header-eye-btn"
+                    onClick={() => setIsEyeMenuOpen((prev) => !prev)}
+                    title="Management Views & Loop Flow"
+                    aria-label="Management Views & Loop Flow"
+                    aria-expanded={isEyeMenuOpen}
+                    className={`p-2 rounded-2xl transition-all cursor-pointer flex items-center justify-center relative active:scale-95 ${
+                      isEyeMenuOpen || isBackstageActive
+                        ? "bg-violet-600 text-white shadow-md shadow-violet-500/25 ring-2 ring-violet-400/40"
+                        : "text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200"
+                    }`}
+                  >
+                    <Eye className="w-4 h-4 stroke-[2.2]" />
+                    {/* Alert badge if any hires need attention or are at risk */}
+                    {(needsAttentionCount > 0 || atRiskCount > 0) && !isEyeMenuOpen && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-fuchsia-500 ring-2 ring-white animate-pulse" />
                     )}
+                  </button>
 
-                    {/* Item 5: Client Demo Story */}
-                    {onOpenClientDemo && (
-                      <button
-                        id="eye-menu-client-demo"
-                        onClick={() => {
-                          onOpenClientDemo();
-                          setIsEyeMenuOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-violet-50 text-violet-600">
-                            <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </div>
-                          <div className="text-left">
-                            <div className="leading-tight">Client Demo Story</div>
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              Demos 1–8 & 6-stage closed loop
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-md">
-                          Story
+                  {/* Backstage Quick Popover Menu */}
+                  {isEyeMenuOpen && (
+                    <div
+                      id="header-eye-popover"
+                      className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/90 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          Operations Hub
                         </span>
-                      </button>
-                    )}
-
-                    {/* Item 6: Client Demo Work-Signal Feed (Google Sheet / Form Ingestor) */}
-                    {onOpenFeedModal && (
-                      <button
-                        id="eye-menu-feed-ingestor"
-                        onClick={() => {
-                          onOpenFeedModal();
-                          setIsEyeMenuOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-                            <FileSpreadsheet className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </div>
-                          <div className="text-left">
-                            <div className="leading-tight">Demo Signal Feed</div>
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              Form / Sheet 12-field live test
-                            </div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                          Feed
+                        <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">
+                          Admin Access
                         </span>
-                      </button>
-                    )}
+                      </div>
 
-                    {/* Return to Learner Companion if in manager/org view */}
-                    {isBackstageActive && (
-                      <div className="pt-1 mt-1 border-t border-slate-100">
+                      <div className="p-1 space-y-1">
+                        {/* Item 1: Supervisor */}
                         <button
-                          id="eye-menu-return-learner"
-                          onClick={() => handleSelectTab("new_hire")}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all cursor-pointer"
+                          id="eye-menu-supervisor"
+                          onClick={() => handleSelectTab("manager")}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            activeTab === "manager"
+                              ? "bg-violet-50 text-violet-700"
+                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          }`}
                         >
-                          <span>Back to Learner Companion</span>
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`p-1.5 rounded-lg ${
+                                activeTab === "manager"
+                                  ? "bg-violet-600 text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              <User className="w-3.5 h-3.5 stroke-[2.2]" />
+                            </div>
+                            <div className="text-left">
+                              <div className="leading-tight">Supervisor</div>
+                              <div className="text-[10px] text-slate-400 font-normal">
+                                Floor triage & support
+                              </div>
+                            </div>
+                          </div>
+                          {(atRiskCount > 0 || needsAttentionCount > 0) && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-fuchsia-500 text-white">
+                              {needsAttentionCount + atRiskCount}
+                            </span>
+                          )}
                         </button>
+
+                        {/* Item 2: Store Ops */}
+                        <button
+                          id="eye-menu-store-ops"
+                          onClick={() => handleSelectTab("organization")}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            activeTab === "organization"
+                              ? "bg-violet-50 text-violet-700"
+                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`p-1.5 rounded-lg ${
+                                activeTab === "organization"
+                                  ? "bg-violet-600 text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              <Zap className="w-3.5 h-3.5 stroke-[2.2]" />
+                            </div>
+                            <div className="text-left">
+                              <div className="leading-tight">Store Ops</div>
+                              <div className="text-[10px] text-slate-400 font-normal">
+                                Cohort ramp health
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+
+                        {/* Item 3: 10-Day Skill Journey */}
+                        <button
+                          id="eye-menu-skill-journey"
+                          onClick={() => handleSelectTab("skill_journey")}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            activeTab === "skill_journey"
+                              ? "bg-violet-50 text-violet-700"
+                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`p-1.5 rounded-lg ${
+                                activeTab === "skill_journey"
+                                  ? "bg-violet-600 text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              <Milestone className="w-3.5 h-3.5 stroke-[2.2]" />
+                            </div>
+                            <div className="text-left">
+                              <div className="leading-tight">10-Day Skill Journey</div>
+                              <div className="text-[10px] text-slate-400 font-normal">
+                                Where learner should be vs is
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+
+                        {/* Item 4: Loop Flow */}
+                        <button
+                          id="eye-menu-loop-flow"
+                          onClick={handleSelectLoop}
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                              <Sliders className="w-3.5 h-3.5 stroke-[2.2]" />
+                            </div>
+                            <div className="text-left">
+                              <div className="leading-tight">Loop Flow</div>
+                              <div className="text-[10px] text-slate-400 font-normal">
+                                6-stage intelligence cycle
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">
+                            Inspect
+                          </span>
+                        </button>
+
+                        {/* Item 4: Onboarding Welcome Screen */}
+                        {onOpenOnboarding && (
+                          <button
+                            id="eye-menu-onboarding"
+                            onClick={() => {
+                              onOpenOnboarding();
+                              setIsEyeMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600">
+                                <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
+                              </div>
+                              <div className="text-left">
+                                <div className="leading-tight">Onboarding Page</div>
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  Start my day landing
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                              Intro
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Item 5: Client Demo Story */}
+                        {onOpenClientDemo && (
+                          <button
+                            id="eye-menu-client-demo"
+                            onClick={() => {
+                              onOpenClientDemo();
+                              setIsEyeMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-1.5 rounded-lg bg-violet-50 text-violet-600">
+                                <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
+                              </div>
+                              <div className="text-left">
+                                <div className="leading-tight">Client Demo Story</div>
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  Demos 1–8 & 6-stage closed loop
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-md">
+                              Story
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Item 6: Client Demo Work-Signal Feed (Google Sheet / Form Ingestor) */}
+                        {onOpenFeedModal && (
+                          <button
+                            id="eye-menu-feed-ingestor"
+                            onClick={() => {
+                              onOpenFeedModal();
+                              setIsEyeMenuOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                                <FileSpreadsheet className="w-3.5 h-3.5 stroke-[2.2]" />
+                              </div>
+                              <div className="text-left">
+                                <div className="leading-tight">Demo Signal Feed</div>
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  Form / Sheet 12-field live test
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                              Feed
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Return to Learner Companion if in manager/org view */}
+                        <div className="pt-1 mt-1 border-t border-slate-100">
+                          <button
+                            id="eye-menu-return-learner"
+                            onClick={() => handleSelectTab("new_hire")}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all cursor-pointer"
+                          >
+                            <span>Back to Learner Companion</span>
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
               </>
             )}
           </div>

@@ -130,7 +130,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
           <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/25 text-white text-[11px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>{isHindi ? "डार्क स्टोर व वेयरहाउस ट्रेनिंग" : "Warehouse & Dark Store Ops"}</span>
+            <span>{isHindi ? "रिटेल ऑपरेशन्स व कैशियर ट्रेनिंग" : "Retail Operations & Cashier Training"}</span>
           </div>
         </div>
 

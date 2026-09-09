@@ -92,7 +92,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
                   1. Worker Shift Voice / Note
                 </span>
                 <p className="text-slate-800 font-medium italic">
-                  "{dayRecord?.dailySignal?.rawText || "Confused where products are located in Aisles 4-8."}"
+                  "{dayRecord?.dailySignal?.rawText || (newHire.roleId === "dark_store_picker" ? "Confused where products are located in Aisles 4-8." : "Confused with loose produce PLU lookup at Till 1.")}"
                 </p>
               </div>
 
@@ -104,7 +104,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
                   State: <strong className="text-amber-800">{dayRecord?.managerSignal?.state || "Needs support"}</strong>
                 </div>
                 <div className="text-slate-500 text-[11px] mt-0.5">
-                  Category: {dayRecord?.managerSignal?.issueCategory || "Speed / Navigation"}
+                  Category: {dayRecord?.managerSignal?.issueCategory || (newHire.roleId === "dark_store_picker" ? "Speed / Navigation" : "Scanning / PLU Lookup")}
                 </div>
                 {dayRecord?.managerSignal?.notes && (
                   <p className="text-[10px] text-slate-400 italic mt-1 truncate">
@@ -115,10 +115,10 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
 
               <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                  3. Live Floor Pick Telemetry
+                  3. Live Floor Telemetry
                 </span>
                 <div className="text-slate-800 font-medium">
-                  Actual Pace: <strong>{dayRecord?.workSignal?.actualPickRate || 35} /hr</strong> (Target: {dayRecord?.workSignal?.targetPickRate || 50})
+                  Actual Pace: <strong>{dayRecord?.workSignal?.actualPickRate || (newHire.roleId === "dark_store_picker" ? 35 : 14)} /{newHire.roleId === "dark_store_picker" ? "hr" : "min"}</strong> (Target: {dayRecord?.workSignal?.targetPickRate || (newHire.roleId === "dark_store_picker" ? 50 : 20)})
                 </div>
                 <div className="text-emerald-700 font-bold text-[11px] mt-0.5">
                   Scanning Accuracy: {dayRecord?.workSignal?.accuracyRate || 98}%
@@ -146,7 +146,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Extracted Friction</span>
                 <span className="font-bold text-slate-900 text-xs">
-                  {dayRecord?.dailySignal?.issue || "Rack navigation"}
+                  {dayRecord?.dailySignal?.issue || (newHire.roleId === "dark_store_picker" ? "Rack navigation" : "PLU code entry")}
                 </span>
               </div>
               <div>
@@ -158,7 +158,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Impact on Wave</span>
                 <span className="font-bold text-amber-700 text-xs">
-                  {dayRecord?.dailySignal?.possibleImpact || "Slow picking pace"}
+                  {dayRecord?.dailySignal?.possibleImpact || (newHire.roleId === "dark_store_picker" ? "Slow picking pace" : "Till queue buildup")}
                 </span>
               </div>
               <div>
@@ -180,7 +180,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
                 <span>STAGE 3: CONNECT • What skill, person, or problem is connected?</span>
               </span>
               <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                {dayRecord?.identifiedPattern?.patternName || "Layout Familiarity"}
+                {dayRecord?.identifiedPattern?.patternName || (newHire.roleId === "dark_store_picker" ? "Layout Familiarity" : "PLU Code Lookup")}
               </span>
             </div>
 
@@ -188,10 +188,12 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               <p className="text-slate-800 font-medium leading-relaxed">
                 <strong className="text-purple-950">Diagnostic Connection: </strong>
                 {dayRecord?.identifiedPattern?.diagnosis ||
-                  "New hire reports spatial confusion in Aisles 4-8. Accuracy remains high (98%), confirming strong diligence. System links friction to Capability 3 (Rack & bin navigation) rather than a motivation or theoretical training problem."}
+                  (newHire.roleId === "dark_store_picker"
+                    ? "New hire reports spatial confusion in Aisles 4-8. Accuracy remains high (98%), confirming strong diligence. System links friction to Capability 3 (Rack & bin navigation) rather than a motivation or theoretical training problem."
+                    : "New hire reports produce PLU code entry hesitation at Till 1. Accuracy remains high (98%), confirming strong diligence. System links friction to Capability 4 (Manual PLU Code Entry) rather than a motivation or theoretical training problem.")}
               </p>
               <div className="pt-1 flex items-center gap-3 text-[11px] text-slate-500 font-semibold">
-                <span>Target Capability: #{dayRecord?.recommendedAction?.targetCapabilityId || 3}</span>
+                <span>Target Capability: #{dayRecord?.recommendedAction?.targetCapabilityId || (newHire.roleId === "dark_store_picker" ? 3 : 4)}</span>
                 <span>•</span>
                 <span>Assigned Peer: {dayRecord?.recommendedAction?.targetActor || newHire.buddy}</span>
               </div>
@@ -216,7 +218,7 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-bold text-slate-700">Adaptive Path Decision:</span>
                 <span className="font-black text-amber-800">
-                  Target Capability #{dayRecord?.recommendedAction?.targetCapabilityId || 3}
+                  Target Capability #{dayRecord?.recommendedAction?.targetCapabilityId || (newHire.roleId === "dark_store_picker" ? 3 : 4)}
                 </span>
               </div>
               <p className="text-slate-800 font-medium leading-relaxed">
@@ -245,7 +247,9 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-emerald-950 text-xs sm:text-sm">
                   {dayRecord?.recommendedAction?.title ||
-                    "Buddy walkthrough of location navigation in Aisles 4-8"}
+                    (newHire.roleId === "dark_store_picker"
+                      ? "Buddy walkthrough of location navigation in Aisles 4-8"
+                      : "Buddy walkthrough of produce PLU codes at Weighing Station")}
                 </h4>
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
                   {dayRecord?.recommendedAction?.urgency || "Next Shift"}
@@ -253,7 +257,9 @@ export const LoopInspectorModal: React.FC<LoopInspectorModalProps> = ({
               </div>
               <p className="text-emerald-900">
                 {dayRecord?.recommendedAction?.description ||
-                  "Pair with Senior Picker for a 15-minute floor walkthrough focusing on Aisles 4-8 rack codes."}
+                  (newHire.roleId === "dark_store_picker"
+                    ? "Pair with Senior Picker for a 15-minute floor walkthrough focusing on Aisles 4-8 rack codes."
+                    : "Pair with Senior Cashier for a 15-minute floor walkthrough focusing on produce PLU codes and scale tare.")}
               </p>
               <div className="pt-2 flex items-center justify-between text-emerald-800 font-bold border-t border-emerald-200">
                 <span>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NewHire, DailySignal, DARK_STORE_CAPABILITIES } from "../types";
-import { analyzeDailyReport } from "../services/intelligence";
+import { analyzeDailyReport, assessReadiness } from "../services/intelligence";
 import { speakMessage, stopSpeaking } from "../utils/speech";
 import { CircularDialWidget } from "./CircularDialWidget";
 import { StoreZonesGrid } from "./StoreZonesGrid";
@@ -9,8 +9,10 @@ import { ModulesView } from "./ModulesView";
 import { TodaysGoalLandingView } from "./TodaysGoalLandingView";
 import { FloatingGlassMenu, LearnerSection } from "./FloatingGlassMenu";
 import { LearnerJourneyRoadmap } from "./LearnerJourneyRoadmap";
+import { LearnerSkillJourneyPage } from "./LearnerSkillJourneyPage";
 import { LearnerDailyReportCard } from "./LearnerDailyReportCard";
 import { YesterdayShiftDetailModal } from "./YesterdayShiftDetailModal";
+import { LearnerProfileSelector } from "./LearnerProfileSelector";
 import {
   Mic,
   MicOff,
@@ -73,6 +75,8 @@ interface NewHireViewProps {
   doingWellCount?: number;
   needsAttentionCount?: number;
   atRiskCount?: number;
+  newHires?: NewHire[];
+  onSelectHire?: (hireId: string) => void;
 }
 
 export const NewHireView: React.FC<NewHireViewProps> = ({
@@ -95,6 +99,8 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
   doingWellCount,
   needsAttentionCount,
   atRiskCount,
+  newHires,
+  onSelectHire,
 }) => {
   // Safe helper names
   const buddyFirstName = (newHire?.buddy || "Vikram").split(" ")[0];
@@ -189,7 +195,7 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
         replyText:
           currentRecord.dailySignal.companionResponse ||
           (isNeedsHelp
-            ? `${buddyFirstName} will help you with floor picking today. Accuracy is ${currentRecord.workSignal?.accuracyRate ?? 98}%, no stress!`
+            ? `${buddyFirstName} will help you with ${newHire?.roleId === "dark_store_picker" ? "floor picking" : "checkout billing"} today. Accuracy is ${currentRecord.workSignal?.accuracyRate ?? 98}%, no stress!`
             : "Shift reported! Great work keeping high accuracy."),
         timestamp: currentRecord.dailySignal.timestamp || "Today",
       });
@@ -512,10 +518,10 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
 
   const readinessPct =
     typeof newHire.overallReadinessScore === "number"
-      ? newHire.overallReadinessScore <= 1
-        ? Math.round(newHire.overallReadinessScore * 100)
-        : Math.round(newHire.overallReadinessScore)
-      : Math.round((newHire.rampProgress || 0.74) * 100);
+      ? (newHire.overallReadinessScore <= 1
+          ? Math.round(newHire.overallReadinessScore * 100)
+          : Math.round(newHire.overallReadinessScore))
+      : assessReadiness(newHire?.capabilities || {}, newHire);
 
   return (
     <div className="max-w-md mx-auto pb-28 select-none">
@@ -542,33 +548,35 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
               className="absolute -bottom-16 left-1/3 w-72 h-72 rounded-full bg-[#00D4FF]/45 blur-3xl pointer-events-none animate-orb-3"
               aria-hidden="true"
             />
-            {/* Top Bar: 10-Day Journey Icon, Title, and Hamburger Menu */}
-            <div className="flex items-center justify-between relative pt-1">
+            {/* Top Bar: 10-Day Journey Icon, Learner Profile Selector, and Hamburger Menu */}
+            <div className="flex items-center justify-between gap-2 relative pt-1">
               {/* Direct 10-Day Skill Journey Icon Button on Home Page */}
-              {onSelectTab ? (
-                <button
-                  id="hero-skill-journey-icon-btn"
-                  type="button"
-                  onClick={() => onSelectTab("skill_journey")}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-sm group"
-                  title={isHindi ? "10-दिवसीय स्किल जर्नी देखें" : "View 10-Day Skill Journey"}
-                  aria-label="10-Day Skill Journey"
-                >
-                  <Milestone className="w-4 h-4 text-white group-hover:scale-110 transition-transform stroke-[2.2]" />
-                  <span className="text-[11px] font-bold text-white tracking-tight hidden xs:inline">
-                    10D Journey
-                  </span>
-                </button>
-              ) : (
-                <div className="w-8" aria-hidden="true" />
+              <button
+                id="hero-skill-journey-icon-btn"
+                type="button"
+                onClick={() => setActiveSection("journey")}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-sm group shrink-0"
+                title={isHindi ? "मेरी 10-दिवसीय स्किल जर्नी देखें" : "View My 10-Day Skill Journey"}
+                aria-label="10-Day Skill Journey"
+              >
+                <Milestone className="w-4 h-4 text-white group-hover:scale-110 transition-transform stroke-[2.2]" />
+                <span className="text-[11px] font-bold text-white tracking-tight hidden sm:inline">
+                  {isHindi ? "मेरी जर्नी" : "10D Path"}
+                </span>
+              </button>
+
+              {/* Center: Global Learner Profile Selector */}
+              {newHires && onSelectHire && (
+                <LearnerProfileSelector
+                  newHires={newHires}
+                  activeHireId={newHire.id}
+                  onSelectHire={onSelectHire}
+                  isHindi={isHindi}
+                  variant="hero"
+                />
               )}
 
-              {/* Title: Daily Shift Operations */}
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-center">
-                {isHindi ? "दैनिक शिफ्ट ऑपरेशंस" : "Daily Shift Operations"}
-              </h1>
-
-              {/* Hamburger Menu on Right (3 lines aligned right matching retail.png) */}
+              {/* Hamburger Menu on Right (Learner-Only Options) */}
               <div className="relative" ref={heroMenuRef}>
                 <button
                   id="hero-hamburger-menu-btn"
@@ -576,17 +584,18 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                   onClick={() => setIsHeroMenuOpen((prev) => !prev)}
                   className="p-1.5 -mr-1 text-white hover:opacity-80 transition-opacity cursor-pointer flex flex-col items-end justify-center gap-1.25 w-8 h-8"
                   title="Menu"
+                  aria-label="Learner Menu"
                 >
                   <span className="w-4 h-0.75 bg-white rounded-full" />
                   <span className="w-5.5 h-0.75 bg-white rounded-full" />
                   <span className="w-4 h-0.75 bg-white rounded-full" />
                 </button>
 
-                {/* Operations Dropdown Menu */}
+                {/* Learner Dropdown Menu - Strictly Authorized Learner Tools Only */}
                 {isHeroMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white text-slate-900 border border-slate-200 shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white text-slate-900 border border-slate-200 shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1 border-b border-slate-100 flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
-                      <span>Operations Menu</span>
+                      <span>{isHindi ? "लर्नर मेनू" : "Learner Menu"}</span>
                       {onToggleLanguage && (
                         <button
                           type="button"
@@ -600,100 +609,89 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                         </button>
                       )}
                     </div>
-                    {onSelectTab && (
-                      <>
+
+                    <div className="p-1 space-y-0.5">
+                      {/* 10-Day Skill Journey */}
+                      <button
+                        id="hero-menu-skill-journey-btn"
+                        type="button"
+                        onClick={() => {
+                          setActiveSection("journey");
+                          setIsHeroMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 rounded-xl flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Milestone className="w-3.5 h-3.5 text-violet-600 stroke-[2.2]" />
+                          <span>{isHindi ? "मेरी 10D जर्नी" : "My 10-Day Journey"}</span>
+                        </span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
+                          {isHindi ? "रोडमैप" : "Roadmap"}
+                        </span>
+                      </button>
+
+                      {/* Training Modules */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveSection("modules");
+                          setIsHeroMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-slate-600 stroke-[2.2]" />
+                          <span>{isHindi ? "ट्रेनिंग मॉड्यूल्स" : "Training Modules"}</span>
+                        </span>
+                      </button>
+
+                      {/* Floor Shift Tools */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModal("work");
+                          setIsHeroMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Briefcase className="w-3.5 h-3.5 text-slate-600 stroke-[2.2]" />
+                          <span>{isHindi ? "फ्लोर शिफ्ट टूल्स" : "Floor Shift Tools"}</span>
+                        </span>
+                      </button>
+
+                      {/* Store Map */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModal("map");
+                          setIsHeroMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-slate-600 stroke-[2.2]" />
+                          <span>{isHindi ? "डार्क स्टोर मैप" : "Dark Store Map"}</span>
+                        </span>
+                      </button>
+
+                      {/* Onboarding Intro */}
+                      {onOpenOnboarding && (
                         <button
-                          id="hero-menu-skill-journey-btn"
                           type="button"
                           onClick={() => {
-                            onSelectTab("skill_journey");
+                            onOpenOnboarding();
                             setIsHeroMenuOpen(false);
                           }}
-                          className="w-full text-left px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 flex items-center justify-between cursor-pointer border-b border-slate-100"
+                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between cursor-pointer border-t border-slate-100 mt-1 pt-2"
                         >
                           <span className="flex items-center gap-2">
-                            <Milestone className="w-3.5 h-3.5 text-violet-600 stroke-[2.2]" />
-                            <span>10-Day Skill Journey</span>
-                          </span>
-                          <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">
-                            Roadmap
+                            <Sparkles className="w-3.5 h-3.5 text-rose-500 stroke-[2.2]" />
+                            <span>{isHindi ? "ऑनबोर्डिंग टूर" : "Onboarding Tour"}</span>
                           </span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelectTab("manager");
-                            setIsHeroMenuOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Supervisor View</span>
-                          {((needsAttentionCount ?? 0) > 0 || (atRiskCount ?? 0) > 0) && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-fuchsia-500 text-white">
-                              {(needsAttentionCount ?? 0) + (atRiskCount ?? 0)}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelectTab("organization");
-                            setIsHeroMenuOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Store Operations</span>
-                        </button>
-                      </>
-                    )}
-                    {onOpenClientDemo && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onOpenClientDemo();
-                          setIsHeroMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                      >
-                        <span>🎯 Client Demo Story</span>
-                      </button>
-                    )}
-                    {onOpenLoopModal && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onOpenLoopModal();
-                          setIsHeroMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                      >
-                        <span>Loop Flow Inspection</span>
-                      </button>
-                    )}
-                    {onOpenOnboarding && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onOpenOnboarding();
-                          setIsHeroMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                      >
-                        <span>Onboarding Walkthrough</span>
-                      </button>
-                    )}
-                    {onOpenFeedModal && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onOpenFeedModal();
-                          setIsHeroMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer"
-                      >
-                        <span>Demo Signal Feed</span>
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -967,7 +965,13 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-purple-100 font-medium truncate mt-0.5">
-                    {isHindi ? "फ्लोर साथी • आइसल 4-8" : "Floor Buddy • Aisles 4-8"}
+                    {isHindi
+                      ? newHire.roleId === "dark_store_picker"
+                        ? "फ्लोर साथी • आइसल 4-8"
+                        : "फ्लोर साथी • टिल ऑपरेशन्स"
+                      : newHire.roleId === "dark_store_picker"
+                      ? "Floor Buddy • Aisles 4-8"
+                      : "Floor Buddy • Checkout Tills"}
                   </p>
                 </div>
               </div>
@@ -1137,6 +1141,7 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
             onAisleMap={() => setActiveModal("map")}
             onOpenTarget={() => setActiveModal("target")}
             isHindi={isHindi}
+            roleId={newHire.roleId}
           />
 
           {/* Store Zone Bottlenecks & Route Intelligence */}
@@ -1153,7 +1158,14 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
               }
             }}
             isHindi={isHindi}
-            activeZoneId={currentDay === 3 ? "aisles_4_8" : "aisles_1_3"}
+            activeZoneId={
+              newHire.roleId === "dark_store_picker"
+                ? currentDay === 3
+                  ? "aisles_4_8"
+                  : "aisles_1_3"
+                : "express_till_1"
+            }
+            roleId={newHire.roleId}
           />
         </div>
       )}
@@ -1175,7 +1187,14 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
                 <h3 className="text-base font-black text-slate-900">{newHire.buddy}</h3>
                 <p className="text-xs text-slate-500 font-medium">Senior Floor Buddy</p>
                 <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full inline-block mt-0.5 border border-emerald-200">
-                  🟢 {isHindi ? "फ्लोर पर हैं (Aisles 4-8)" : "On Floor (Aisles 4-8)"}
+                  🟢{" "}
+                  {isHindi
+                    ? newHire.roleId === "dark_store_picker"
+                      ? "फ्लोर पर हैं (Aisles 4-8)"
+                      : "फ्लोर पर हैं (टिल ज़ोन)"
+                    : newHire.roleId === "dark_store_picker"
+                    ? "On Floor (Aisles 4-8)"
+                    : "On Floor (Checkout Zone)"}
                 </span>
               </div>
             </div>
@@ -1357,6 +1376,22 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
       )}
 
       {/* ========================================================= */}
+      {/* 1.5. DEDICATED 10-DAY SKILL JOURNEY: LEARNER ONLY ROADMAP */}
+      {/* ========================================================= */}
+      {activeSection === "journey" && (
+        <div className="animate-in fade-in duration-200">
+          <LearnerSkillJourneyPage
+            newHire={newHire}
+            currentDay={newHire.currentDay || currentDay}
+            isHindi={isHindi}
+            onBack={() => setActiveSection("home")}
+            onNavigateToSection={(section) => setActiveSection(section)}
+            onOpenWorkTools={() => setActiveModal("work")}
+          />
+        </div>
+      )}
+
+      {/* ========================================================= */}
       {/* 4. DASHBOARD: WHAT HAVE I LEARNED & JOB READINESS VISUAL  */}
       {/* ========================================================= */}
       {activeSection === "dashboard" && (
@@ -1368,11 +1403,13 @@ export const NewHireView: React.FC<NewHireViewProps> = ({
             isHindi={isHindi}
           />
 
-          {/* 2. INTERACTIVE 6-STAGE ROADMAP */}
+          {/* 2. INTERACTIVE PRO PICKER ROADMAP */}
           <LearnerJourneyRoadmap
             newHire={newHire}
             currentDay={currentDay}
             isHindi={isHindi}
+            onNavigateToSection={(section) => setActiveSection(section)}
+            onOpenWorkTools={() => setActiveModal("work")}
           />
 
           {/* 3. DAILY SHIFT REPORT & CONTINUITY (CLICKABLE FOR FULL SUMMARY MODAL) */}

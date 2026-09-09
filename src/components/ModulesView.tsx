@@ -42,7 +42,7 @@ import {
   Phone,
 } from "lucide-react";
 import { NewHire, TrainingModule, ModuleActivity, DARK_STORE_CAPABILITIES } from "../types";
-import { MANDATORY_TRAINING_MODULES } from "../data/modulesData";
+import { getModulesForRole } from "../data/modulesData";
 import { ActiveTab } from "./Header";
 import { LearnerSection } from "./FloatingGlassMenu";
 import { determineAdaptiveCurrentPlan } from "../services/intelligence";
@@ -118,11 +118,12 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
     "lms-mod-02",
     "lms-mod-03",
   ];
+  const activeModules = getModulesForRole(newHire.roleId);
   const quizAvg = newHire.quizAverageScore ?? 94;
   const firstName = (newHire.name || "Rahul").split(" ")[0];
 
   const handleCompleteActivity = (modId: string, actId: string) => {
-    const mod = MANDATORY_TRAINING_MODULES.find((m) => m.id === modId);
+    const mod = activeModules.find((m) => m.id === modId);
     if (!mod) return;
 
     if (!completedIds.includes(modId)) {
@@ -195,7 +196,7 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
   };
 
   // Filter modules based on selected pillar
-  const displayedModules = MANDATORY_TRAINING_MODULES.filter((m) => {
+  const displayedModules = activeModules.filter((m) => {
     if (pillarFilter === "foundation") return m.dayNumber <= 3;
     if (pillarFilter === "floor") return m.dayNumber >= 4 && m.dayNumber <= 7;
     if (pillarFilter === "cert") return m.dayNumber >= 8;
@@ -203,8 +204,8 @@ export const ModulesView: React.FC<ModulesViewProps> = ({
   });
 
   const nextModuleToStudy =
-    MANDATORY_TRAINING_MODULES.find((m) => m.dayNumber === modulesCompletedCount + 1) ||
-    MANDATORY_TRAINING_MODULES[0];
+    activeModules.find((m) => m.dayNumber === modulesCompletedCount + 1) ||
+    activeModules[0];
 
   const getModuleIcon = (dayNumber: number) => {
     switch (dayNumber) {

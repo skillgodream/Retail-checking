@@ -4,6 +4,7 @@ import { NewHireView } from "./components/NewHireView";
 import { ManagerView } from "./components/ManagerView";
 import { OrganizationView } from "./components/OrganizationView";
 import { TenDaySkillJourneyView } from "./components/TenDaySkillJourneyView";
+import { LearnerSkillJourneyPage } from "./components/LearnerSkillJourneyPage";
 import { OnboardingView } from "./components/OnboardingView";
 import { LoopInspectorModal } from "./components/LoopInspectorModal";
 import { TelemetryDialModal } from "./components/TelemetryDialModal";
@@ -399,6 +400,9 @@ export default function App() {
               isHomeScreen={activeTab === "new_hire" && (learnerSection === "home" || learnerSection === "modules" || learnerSection === "todays_goal")}
               learnerName={activeHire.name}
               buddyName={activeHire.buddy}
+              newHires={newHires}
+              activeHireId={activeHireId}
+              onSelectHire={(id) => setActiveHireId(id)}
             />
 
             {/* Chatbot Pull-Out Button docked on the right side of the screen (hidden pull-out) */}
@@ -407,6 +411,7 @@ export default function App() {
               learnerName={activeHire.name}
               buddyName={activeHire.buddy}
               isHindi={isHindi}
+              roleId={activeHire.roleId}
               onAlertBuddy={() => {
                 setActiveTab("new_hire");
                 setLearnerSection("buddy");
@@ -442,6 +447,8 @@ export default function App() {
                   doingWellCount={doingWellCount}
                   needsAttentionCount={needsAttentionCount}
                   atRiskCount={atRiskCount}
+                  newHires={newHires}
+                  onSelectHire={(id) => setActiveHireId(id)}
                 />
               )}
 
@@ -462,13 +469,37 @@ export default function App() {
               )}
 
               {activeTab === "skill_journey" && (
-                <TenDaySkillJourneyView
-                  newHires={newHires}
-                  activeHireId={activeHireId}
-                  onSelectHire={(id) => setActiveHireId(id)}
-                  currentDay={currentDay}
-                  onBackToManager={() => setActiveTab(previousTab === "skill_journey" ? "new_hire" : previousTab)}
-                />
+                previousTab === "manager" || previousTab === "organization" ? (
+                  <TenDaySkillJourneyView
+                    newHires={newHires}
+                    activeHireId={activeHireId}
+                    onSelectHire={(id) => setActiveHireId(id)}
+                    currentDay={currentDay}
+                    isHindi={isHindi}
+                    onBackToManager={() => setActiveTab(previousTab)}
+                    onNavigateToSection={(section) => {
+                      setLearnerSection(section);
+                      setActiveTab("new_hire");
+                    }}
+                    onOpenWorkTools={() => {
+                      setActiveTab("new_hire");
+                    }}
+                  />
+                ) : (
+                  <LearnerSkillJourneyPage
+                    newHire={activeHire}
+                    currentDay={activeHire.currentDay || currentDay}
+                    isHindi={isHindi}
+                    onBack={() => setActiveTab("new_hire")}
+                    onNavigateToSection={(section) => {
+                      setLearnerSection(section);
+                      setActiveTab("new_hire");
+                    }}
+                    onOpenWorkTools={() => {
+                      setActiveTab("new_hire");
+                    }}
+                  />
+                )
               )}
 
               {activeTab === "organization" && (

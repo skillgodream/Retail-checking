@@ -30,7 +30,19 @@ import {
   compareLearnerToMilestone,
   evaluatePitStopDecision,
 } from "../types";
+import { RETAIL_CASHIER_CAPABILITIES } from "../models/retailCashierCapabilities";
 import { createDefaultCapabilitiesLedger } from "../data/seedData";
+
+export function getCapabilityDefinitions(hire?: Partial<NewHire>): CapabilityDefinition[] {
+  if (
+    hire?.roleId === "dark_store_picker" ||
+    hire?.roleId === "quick_commerce_picker" ||
+    hire?.roleTitle === "Dark Store Picker"
+  ) {
+    return DARK_STORE_CAPABILITIES;
+  }
+  return RETAIL_CASHIER_CAPABILITIES;
+}
 
 export interface Day10EvaluationResult {
   isReady: boolean;
@@ -228,9 +240,10 @@ export function assessReadiness(
 ): number {
   if (!capabilities) return 0;
   let scoreSum = 0;
-  const totalCaps = DARK_STORE_CAPABILITIES.length; // 20 capabilities
+  const caps = getCapabilityDefinitions(hire);
+  const totalCaps = caps.length;
 
-  for (const cap of DARK_STORE_CAPABILITIES) {
+  for (const cap of caps) {
     const state = capabilities[cap.id];
     if (!state) continue;
 
@@ -311,8 +324,9 @@ export function deriveLearnerRoadmap(
     (c) => c && (c.evidence === "demonstrated" || c.mastery === "proficient" || c.mastery === "mastered")
   ).length;
 
-  const targetCapId = currentRecord?.recommendedAction?.targetCapabilityId || hire.currentCapabilityId || 3;
-  const targetCapDef = DARK_STORE_CAPABILITIES.find((c) => c.id === targetCapId);
+  const capsList = getCapabilityDefinitions(hire);
+  const targetCapId = currentRecord?.recommendedAction?.targetCapabilityId || hire.currentCapabilityId || capsList[2]?.id || capsList[0]?.id;
+  const targetCapDef = capsList.find((c) => c.id === targetCapId) || capsList[0];
 
   // Authoritative stage calculation
   let currentStageIndex = 0;
@@ -444,11 +458,15 @@ export function deriveLearnerRoadmap(
     currentStage,
     nextMilestoneEn: currentStageIndex === 5 ? "Autonomous shift certification maintained" : nextStage.milestoneEn,
     nextMilestoneHi: currentStageIndex === 5 ? "प्रमाणित कार्यकुशलता जारी है" : nextStage.milestoneHi,
-    destinationEn: "Certified Autonomous Dark Store Picker (50+ items/hr, 99% accuracy)",
-    destinationHi: "प्रमाणित स्वतंत्र डार्क स्टोर पिकर (50+ सामान/घंटा, 99% एक्यूरेसी)",
+    destinationEn: hire?.roleId === "dark_store_picker" || hire?.roleTitle === "Dark Store Picker"
+      ? "Certified Autonomous Dark Store Picker (50+ items/hr, 99% accuracy)"
+      : "Certified Autonomous Retail Cashier (20+ items/min, 99% accuracy)",
+    destinationHi: hire?.roleId === "dark_store_picker" || hire?.roleTitle === "Dark Store Picker"
+      ? "प्रमाणित स्वतंत्र डार्क स्टोर पिकर (50+ सामान/घंटा, 99% एक्यूरेसी)"
+      : "प्रमाणित स्वतंत्र रिटेल कैशियर (20+ सामान/मिनट, 99% एक्यूरेसी)",
     stages,
     demonstratedCount,
-    totalCapabilities: DARK_STORE_CAPABILITIES.length,
+    totalCapabilities: capsList.length,
     readinessScore,
     targetCapabilityDef: targetCapDef,
   };
@@ -1042,6 +1060,7 @@ interface ObservedSignals {
   previousInterventionFailed: boolean;
   dailySignal?: DailySignal;
   managerSignal?: ManagerSignal;
+  actionOutcome?: ActionOutcome;
   structuredEvidence: SnapshotEvidenceItem[];
 }
 
@@ -1128,42 +1147,41 @@ function observe(input: LoopExecutionInput): ObservedSignals {
 
   const helpRequestsCount = workSignal?.helpRequestsCount ?? dailySignal?.helpRequestsCount ?? 0;
   const isExplicitDependency =
-    textContent.includes("called buddy 6 times") ||
-    textContent.includes("couldn't pick without buddy") ||
+    textContent.includes("call buddy") ||
+    textContent.includes("called buddy") ||
+    textContent.includes("calling buddy") ||
+    textContent.includes("couldn't pick") ||
+    textContent.includes("could not work alone") ||
     textContent.includes("cannot work alone") ||
-    textContent.includes("without vikram") ||
+    textContent.includes("unable to work alone") ||
     textContent.includes("without buddy") ||
-    textContent.includes("cannot do any totes without") ||
-    textContent.includes("high help dependency") ||
+    textContent.includes("without vikram") ||
+    textContent.includes("without anjali") ||
+    textContent.includes("help dependency") ||
     textContent.includes("unable to pick solo") ||
     textContent.includes("cannot pick solo") ||
-    textContent.includes("need buddy with me on every single order") ||
-    textContent.includes("stay with me while i pick") ||
+    textContent.includes("unable to work solo") ||
     textContent.includes("stay with me") ||
-    textContent.includes("ask my buddy") ||
-    textContent.includes("asks buddy") ||
     textContent.includes("ask buddy") ||
-    managerNotes.includes("continuous buddy support") ||
+    textContent.includes("asks buddy") ||
+    textContent.includes("ask my buddy") ||
+    managerNotes.includes("buddy support") ||
     managerNotes.includes("help dependency") ||
     managerNotes.includes("unable to pick solo") ||
-    managerNotes.includes("needs independent picking") ||
-    managerNotes.includes("stops picking completely when buddy is not") ||
+    managerNotes.includes("unable to work solo") ||
     managerNotes.includes("asks buddy") ||
-    managerNotes.includes("ask buddy") ||
-    (managerSignal?.issueCategory as string) === "Dependency";
+    (managerSignal?.issueCategory as string) === "Dependency" ||
+    (dailySignal?.issue as string)?.toLowerCase().includes("dependency");
 
   const workerChronicHelpDependency =
     isExplicitDependency ||
-    (helpRequestsCount >= 5 &&
-      (managerSignal?.issueCategory === "Confidence" || managerSignal?.state === "Struggling") &&
-      !textContent.includes("aisle") &&
-      !textContent.includes("location") &&
-      !textContent.includes("shelf"));
+    helpRequestsCount >= 5 ||
+    (helpRequestsCount >= 4 && (managerSignal?.issueCategory === "Confidence" || managerSignal?.state === "Struggling"));
 
   const workerReportsConfusion =
     !workerChronicHelpDependency &&
     (textContent.includes("location") ||
-      textContent.includes("confused") ||
+      (textContent.includes("confused") && (textContent.includes("aisle") || textContent.includes("rack") || textContent.includes("shelf") || textContent.includes("find"))) ||
       textContent.includes("where") ||
       textContent.includes("find") ||
       textContent.includes("aisle") ||
@@ -1179,11 +1197,18 @@ function observe(input: LoopExecutionInput): ObservedSignals {
   const workerReportsTool =
     !isToolResolved &&
     (dailySignal?.category === "Tool" ||
+      textContent.includes("pos screen") ||
+      textContent.includes("terminal") ||
+      textContent.includes("edc") ||
+      textContent.includes("pos") ||
       textContent.includes("bluetooth") ||
       textContent.includes("battery") ||
       textContent.includes("hardware") ||
       textContent.includes("touchscreen") ||
       textContent.includes("freezing") ||
+      textContent.includes("froze") ||
+      textContent.includes("barcode gun") ||
+      textContent.includes("printer") ||
       (textContent.includes("scanner") &&
         (textContent.includes("disconnect") ||
           textContent.includes("died") ||
@@ -1366,6 +1391,7 @@ function observe(input: LoopExecutionInput): ObservedSignals {
     previousInterventionFailed,
     dailySignal,
     managerSignal,
+    actionOutcome,
     structuredEvidence,
   };
 }
@@ -1494,64 +1520,7 @@ function understand(
     };
   }
 
-  // 5. Chronic help dependency (distinguished from healthy occasional question)
-  if (
-    observed.workerChronicHelpDependency &&
-    (observed.speedGap > 5 || observed.managerObservesSupport || observed.managerObservesStruggle)
-  ) {
-    return {
-      rootCause: "chronic_dependency",
-      targetCapId: hire.currentCapabilityId || 5,
-      patternCategory: "Process",
-      patternName: "Floor Independence & Help Dependency Gap",
-      diagnosisText:
-        `${firstName} logged ${observed.helpRequestsCount || "multiple"} repeated help requests and is unable to complete tote pick cycles independently on the floor. Structured practice required to build solo autonomy.`,
-    };
-  }
-
-  // 6. Hardware / Tool issue (Symptom != Root Cause)
-  if (
-    observed.workerReportsTool &&
-    (observed.speedGap > 5 ||
-      observed.managerObservesSupport ||
-      observed.managerObservesStruggle ||
-      observed.managerSignal?.issueCategory === "Tool")
-  ) {
-    return {
-      rootCause: "tool_hardware",
-      targetCapId: 2, // DSP-02-SCANNER-BASICS
-      patternCategory: "Tool",
-      patternName: "Hardware / Barcode Scanner Friction",
-      diagnosisText:
-        "Friction is caused by device hardware or barcode scan connectivity delays, NOT worker comprehension or diligence. Training another module will not fix a technical hardware obstacle.",
-    };
-  }
-
-  // 7. Moderate accuracy failure (90% to 95%) when quality standard is breached
-  if (observed.accuracy < 95) {
-    return {
-      rootCause: "variant_quality",
-      targetCapId: 6, // DSP-06-VARIANT-CHECK
-      patternCategory: "Process",
-      patternName: "Item Variant Differentiation & Verification Rush",
-      diagnosisText:
-        `Accuracy is at ${observed.accuracy}% (critically below 98% threshold). ${firstName} is moving at pace but mis-picking visually identical packaging variants (e.g. 200g vs 500g pouches). Real-world accuracy requires immediate standard clarification.`,
-    };
-  }
-
-  // 7. Communication / confidence barrier
-  if (observed.workerReportsCommunication) {
-    return {
-      rootCause: "communication_confidence",
-      targetCapId: 18, // DSP-18-TEAM-ESCALATION
-      patternCategory: "Confidence",
-      patternName: "Floor Escalation & Peer Communication Hesitation",
-      diagnosisText:
-        `${firstName} demonstrates adequate task knowledge but reports hesitation asking shift supervisors or peers for help during peak floor rushes. Non-training buddy support is required.`,
-    };
-  }
-
-  // 8. Aisle & Location navigation
+  // 4.5 Spatial / Location navigation check (when explicit confusion or previous intervention failed on location)
   const pacingText = `${observed.dailySignal?.rawText || ""} ${observed.dailySignal?.issue || ""}`.toLowerCase();
   const isPacingIssue =
     observed.speedGap > 5 &&
@@ -1560,14 +1529,15 @@ function understand(
       pacingText.includes("route backtracking") ||
       (pacingText.includes("pace") && (pacingText.includes("struggl") || pacingText.includes("drop") || pacingText.includes("slow"))));
 
-  if (
+  const isSpatialIssue =
     !isPacingIssue &&
     (observed.workerReportsConfusion ||
       (observed.managerSignal?.notes || "").toLowerCase().includes("location") ||
       observed.previousInterventionFailed ||
       (existingAction?.targetCapabilityId === 3 && observed.speedGap >= 8)) &&
-    (observed.speedGap >= 8 || observed.managerObservesSupport || observed.managerObservesStruggle || observed.previousInterventionFailed)
-  ) {
+    (observed.speedGap >= 8 || observed.managerObservesSupport || observed.managerObservesStruggle || observed.previousInterventionFailed);
+
+  if (isSpatialIssue) {
     const cap2State = capabilities[2];
     const isCap2Weak =
       cap2State &&
@@ -1601,6 +1571,81 @@ function understand(
     };
   }
 
+  // 5. Chronic help dependency (distinguished from healthy occasional question)
+  if (observed.workerChronicHelpDependency && observed.actionOutcome?.improved !== "yes") {
+    return {
+      rootCause: "chronic_dependency",
+      targetCapId: hire.currentCapabilityId || 5,
+      patternCategory: "Process",
+      patternName: "Floor Independence & Help Dependency Gap",
+      diagnosisText:
+        `${firstName} logged ${observed.helpRequestsCount || "multiple"} repeated help requests and is unable to complete floor cycles independently. Structured practice required to build solo autonomy.`,
+    };
+  }
+
+  // 6. Hardware / Tool issue (Symptom != Root Cause)
+  if (observed.workerReportsTool) {
+    const caps = getCapabilityDefinitions(hire);
+    const toolCap = caps.find((c) => c.code.includes("HARDWARE") || c.code.includes("SCANNER") || c.id === 2) || caps[1] || caps[0];
+    return {
+      rootCause: "tool_hardware",
+      targetCapId: toolCap.id,
+      patternCategory: "Tool",
+      patternName: "Hardware / Barcode Scanner Friction",
+      diagnosisText:
+        "Friction is caused by device hardware or barcode scan connectivity delays, NOT worker comprehension or diligence. Training another module will not fix a technical hardware obstacle.",
+    };
+  }
+
+  // 7. Check for Prerequisite Capability Gap
+  const currentCapId = hire.currentCapabilityId || targetCapId;
+  const capsList = getCapabilityDefinitions(hire);
+  const currentCapDef = capsList.find((c) => c.id === currentCapId);
+  if (currentCapDef && currentCapDef.prerequisites.length > 0) {
+    for (const prereqId of currentCapDef.prerequisites) {
+      const prereqState = capabilities[prereqId];
+      if (
+        prereqState &&
+        prereqState.exposure !== "not_exposed" &&
+        (prereqState.evidence === "inconsistent" || prereqState.performance === "below_target")
+      ) {
+        const prereqDef = capsList.find((c) => c.id === prereqId);
+        return {
+          rootCause: "prerequisite_gap",
+          targetCapId: prereqId,
+          patternCategory: "Process",
+          patternName: `Prerequisite Gap in ${prereqDef?.name || "Device Proficiency"}`,
+          diagnosisText:
+            `${firstName} is struggling with higher-order operations because prerequisite Capability ${prereqId} (${prereqDef?.name || "basics"}) was not solidly grounded. Returning to prerequisite practice is necessary.`,
+        };
+      }
+    }
+  }
+
+  // 7. Moderate accuracy failure (90% to 95%) when quality standard is breached
+  if (observed.accuracy < 95) {
+    return {
+      rootCause: "variant_quality",
+      targetCapId: 6, // DSP-06-VARIANT-CHECK
+      patternCategory: "Process",
+      patternName: "Item Variant Differentiation & Verification Rush",
+      diagnosisText:
+        `Accuracy is at ${observed.accuracy}% (critically below 98% threshold). ${firstName} is moving at pace but mis-picking visually identical packaging variants (e.g. 200g vs 500g pouches). Real-world accuracy requires immediate standard clarification.`,
+    };
+  }
+
+  // 7. Communication / confidence barrier
+  if (observed.workerReportsCommunication) {
+    return {
+      rootCause: "communication_confidence",
+      targetCapId: 18, // DSP-18-TEAM-ESCALATION
+      patternCategory: "Confidence",
+      patternName: "Floor Escalation & Peer Communication Hesitation",
+      diagnosisText:
+        `${firstName} demonstrates adequate task knowledge but reports hesitation asking shift supervisors or peers for help during peak floor rushes. Non-training buddy support is required.`,
+    };
+  }
+
   // 8. General pacing / floor route practice
   if (
     isPacingIssue ||
@@ -1617,6 +1662,32 @@ function understand(
       patternName: "Floor Pacing & Route Practice Gap",
       diagnosisText:
         `${modulePrefix}Pick pace (${observed.currentPickRate}/hr) lags target (${observed.targetPickRate}/hr). The worker understands store rules, but requires supervised floor repetition to build picking rhythm and route efficiency.`,
+    };
+  }
+
+  // 9. Specific Capability Execution / Practice Gap
+  const isCapImprovedInOutcome = observed.actionOutcome?.improved === "yes";
+  const currentCapState = capabilities[currentCapId];
+  const isCurrentCapWeak =
+    !isCapImprovedInOutcome &&
+    currentCapState &&
+    currentCapState.exposure !== "not_exposed" &&
+    currentCapState.evidence !== "demonstrated" &&
+    (currentCapState.evidence === "inconsistent" || currentCapState.performance === "below_target");
+
+  if (
+    !isCapImprovedInOutcome &&
+    (isCurrentCapWeak ||
+      (observed.dailySignal?.category === "Process" && observed.speedGap >= 3) ||
+      (observed.speedGap >= 4 && (observed.helpRequestsCount >= 2 || observed.managerObservesSupport)))
+  ) {
+    return {
+      rootCause: "capability_practice",
+      targetCapId: currentCapId,
+      patternCategory: "Process",
+      patternName: "Capability Execution & Practice Friction",
+      diagnosisText:
+        `${firstName} demonstrates operational understanding but shows execution friction on Capability ${currentCapId}. Guided floor repetition required to build rhythm.`,
     };
   }
 
@@ -1637,17 +1708,18 @@ function connect(
   understood: UnderstoodDiagnosis,
   hire: NewHire
 ): ConnectedContext {
+  const caps = getCapabilityDefinitions(hire);
   const targetCapDef =
-    DARK_STORE_CAPABILITIES.find((c) => c.id === understood.targetCapId) || DARK_STORE_CAPABILITIES[2];
+    caps.find((c) => c.id === understood.targetCapId) || caps[0];
 
   const prerequisites = targetCapDef.prerequisites
-    .map((prereqId) => DARK_STORE_CAPABILITIES.find((c) => c.id === prereqId))
+    .map((prereqId) => caps.find((c) => c.id === prereqId))
     .filter((c): c is CapabilityDefinition => Boolean(c));
 
-  const buddyName = (hire.buddy || "Senior Picker").split(" ")[0];
-  const supervisorName = (hire.supervisor || "Shift In-charge").split(" ")[0];
+  const buddyName = (hire.buddy || "Senior Cashier").split(" ")[0];
+  const supervisorName = (hire.supervisor || "Shift Manager").split(" ")[0];
   const firstName = (hire.name || "Worker").split(" ")[0];
-  const roleTitle = hire.roleTitle || "Dark Store Picker";
+  const roleTitle = hire.roleTitle || "Retail Cashier";
 
   return {
     targetCapDef,
@@ -1790,111 +1862,123 @@ function chooseNextAction(
   }
 
   if (understood.rootCause === "prerequisite_gap") {
+    const capsList = getCapabilityDefinitions(hire);
+    const prereqDef = capsList.find((c) => c.id === understood.targetCapId) || connected.prerequisites[0] || capsList[0];
+    const isDarkStore = hire.roleId === "dark_store_picker" || hire.roleTitle === "Dark Store Picker";
+    const desc = isDarkStore
+      ? `Pause higher-level picking until handheld scanner basics and coordinate interpretation (${prereqDef.name}) are solidly mastered.`
+      : `Pause higher-level counter billing until ${prereqDef.name} basics are solidly mastered.`;
     return {
       decisionType: "return_prerequisite",
-      targetCapId: 2,
+      targetCapId: prereqDef.id,
       targetActor: `Supervisor (${supervisorName}) & Buddy (${buddyName})`,
       urgency: "Immediate",
-      actionTitle: `Return to Prerequisite: ${DARK_STORE_CAPABILITIES[1].name}`,
-      actionDesc:
-        "Pause higher-level picking until handheld scanner basics and coordinate interpretation (Capability 2) are solidly mastered.",
-      practicalStep: "10-minute terminal coordinate walkthrough before attempting solo grocery orders.",
+      actionTitle: `Return to Prerequisite: ${prereqDef.name}`,
+      actionDesc: desc,
+      practicalStep: `10-minute ${prereqDef.name} walkthrough before attempting solo shift tasks.`,
       decisionRationale:
-        "Capability 3 failing because prerequisite Capability 2 was weak. Stepping back is required.",
+        `Higher capability failing because prerequisite ${prereqDef.name} was weak. Stepping back is required.`,
       interimStatus: "Needs attention",
-      interimStatusReason: `Prerequisite gap identified in scanner basics; returning to Capability 2 with ${buddyName}.`,
+      interimStatusReason: `Prerequisite gap identified in ${prereqDef.name}; returning to Capability ${prereqDef.id} with ${buddyName}.`,
     };
   }
 
   if (understood.rootCause === "environment_spatial") {
     if (observed.previousInterventionFailed) {
+      const isDarkStore = hire.roleId === "dark_store_picker" || hire.roleId === "quick_commerce_picker" || hire.roleTitle === "Dark Store Picker";
       return {
         decisionType: "environment_support",
-        targetCapId: 3,
+        targetCapId: targetCapDef.id,
         targetActor: `Supervisor (${supervisorName} - Shift In-charge)`,
         urgency: "Immediate",
-        actionTitle: "Supervisor Floor Layout & Shelf Label Verification",
+        actionTitle: isDarkStore
+          ? "Supervisor Floor Layout & Shelf Label Verification"
+          : `Supervisor Layout & POS Verification (${targetCapDef.name})`,
         actionDesc:
-          `Previous buddy walkthrough did not resolve aisle confusion. Supervisor ${supervisorName} will directly verify shelf coordinate signage in Aisles 4-8 with ${firstName}.`,
-        practicalStep: "10-minute supervisor aisle review focusing on bin coordinate labeling errors.",
+          `Previous buddy walkthrough did not resolve floor confusion. Supervisor ${supervisorName} will directly verify store layout and terminal setup with ${firstName}.`,
+        practicalStep: "10-minute supervisor review focusing on counter or layout setup errors.",
         decisionRationale:
           "Previous buddy walkthrough failed to close gap. Escalating to supervisor floor layout intervention instead of repeating identical action.",
         interimStatus: "At risk",
-        interimStatusReason: "Aisle confusion persisted after buddy walkthrough; escalated to supervisor layout check.",
+        interimStatusReason: "Floor confusion persisted after buddy walkthrough; escalated to supervisor layout check.",
       };
     }
 
     return {
       decisionType: "reinforce_current",
-      targetCapId: 3,
-      targetActor: `Buddy (${buddyName} - Senior Picker)`,
+      targetCapId: targetCapDef.id,
+      targetActor: `Buddy (${buddyName} - Senior Staff)`,
       urgency: "Next Shift",
-      actionTitle: `Buddy Walkthrough of Aisles 4-8 Rack Coordinates (${targetCapDef.name})`,
+      actionTitle: `Buddy Walkthrough (${targetCapDef.name})`,
       actionDesc:
-        `Pair ${firstName} with Senior Picker ${buddyName} for a 15-minute floor walkthrough focusing on Aisles 4-8 shelf numbering (Rack-Bay-Level).`,
-      practicalStep: `15-minute floor walkthrough before morning peak wave with ${buddyName}.`,
+        `Pair ${firstName} with Senior Staff ${buddyName} for a 15-minute floor walkthrough focusing on ${targetCapDef.name}.`,
+      practicalStep: `15-minute floor walkthrough before peak rush wave with ${buddyName}.`,
       decisionRationale:
-        "Exposure occurred, but real-world capability is inconsistent. Reinforce capability 3 via floor buddy.",
+        "Exposure occurred, but real-world capability is inconsistent. Reinforce capability via floor buddy.",
       interimStatus: "Needs attention",
-      interimStatusReason: `Pick rate (${currentPickRate}/${targetPickRate}) delayed by aisle navigation; buddy walkthrough scheduled.`,
+      interimStatusReason: `Performance delayed by floor navigation/setup; buddy walkthrough scheduled.`,
     };
   }
 
   if (understood.rootCause === "capability_practice") {
     return {
       decisionType: "reinforce_current",
-      targetCapId: hire.currentCapabilityId || 5,
+      targetCapId: hire.currentCapabilityId || targetCapDef.id,
       targetActor: `Buddy (${buddyName})`,
       urgency: "Next Shift",
-      actionTitle: `Targeted Route Pacing Practice (${targetCapDef.name})`,
+      actionTitle: `Targeted Practice (${targetCapDef.name})`,
       actionDesc:
-        `Allow ${firstName} 30 minutes of guided picking with buddy ${buddyName} to practice serpentine route pacing without backtracking.`,
-      practicalStep: "30-minute guided picking run on core grocery aisles.",
+        `Allow ${firstName} 30 minutes of guided practice with buddy ${buddyName} on ${targetCapDef.name}.`,
+      practicalStep: "30-minute guided floor run on core shift tasks.",
       decisionRationale:
-        "Worker understands process but requires structured repetition to reach speed threshold.",
+        "Worker understands process but requires structured repetition to reach target threshold.",
       interimStatus: "Needs attention",
-      interimStatusReason: `Pacing practice assigned on Capability ${understood.targetCapId} to close speed gap.`,
+      interimStatusReason: `Practice assigned on Capability ${understood.targetCapId} to close performance gap.`,
     };
   }
 
   // Steady Ramp / Outpacing
+  const capsList = getCapabilityDefinitions(hire);
   const currentMasteredCount = Object.values(capabilities).filter(
     (c) => c.mastery === "mastered" || c.mastery === "proficient"
   ).length;
 
-  if (currentMasteredCount >= 18) {
+  if (currentMasteredCount >= capsList.length - 1) {
     return {
       decisionType: "no_action_monitor",
       targetCapId: targetCapDef.id,
       targetActor: "Self & Supervisor",
       urgency: "Monitor",
-      actionTitle: "Maintain Standard Autonomous Picking",
+      actionTitle: "Maintain Standard Autonomous Execution",
       actionDesc:
-        `All core capabilities demonstrated with high consistency (${currentPickRate}/hr, ${accuracy}% accuracy). Continue regular shift observation.`,
+        `All core capabilities demonstrated with high consistency (${currentPickRate}, ${accuracy}% accuracy). Continue regular shift observation.`,
       practicalStep: "Routine end-of-shift check.",
-      decisionRationale: "Worker has achieved consistent operational performance across all store zones.",
+      decisionRationale: "Worker has achieved consistent operational performance across all store areas.",
       interimStatus: "Doing well",
-      interimStatusReason: `Sustaining target performance (${currentPickRate} picks/hr, ${accuracy}% accuracy).`,
+      interimStatusReason: `Sustaining target performance (${currentPickRate}, ${accuracy}% accuracy).`,
     };
   }
 
   const isTrainingFoundationComplete = (hire.modulesCompleted ?? 10) >= 3;
-  if (isTrainingFoundationComplete && currentPickRate >= targetPickRate + 10 && accuracy >= 98 && (hire.currentCapabilityId || 1) < 8) {
-    const advancedCap = DARK_STORE_CAPABILITIES.find((c) => c.id === 8) || DARK_STORE_CAPABILITIES[7];
-    return {
-      decisionType: "jump_ahead",
-      targetCapId: advancedCap.id,
-      targetActor: `Supervisor (${supervisorName})`,
-      urgency: "Monitor",
-      actionTitle: `Fast-Track Jump to Capability ${advancedCap.id}: ${advancedCap.name}`,
-      actionDesc:
-        `${firstName} is significantly exceeding standard ramp pace (${currentPickRate}/hr vs target ${targetPickRate}/hr, ${accuracy}% accuracy). System approves jumping directly to multi-order batching.`,
-      practicalStep: "Assign multi-order batch cart for next shift wave.",
-      decisionRationale:
-        "Exceptional performance evidence justifies jumping ahead past routine single-order practice.",
-      interimStatus: "Doing well",
-      interimStatusReason: `Exceeding pace curve (${currentPickRate}/hr); fast-tracked to Capability ${advancedCap.id}.`,
-    };
+  if (isTrainingFoundationComplete && currentPickRate >= targetPickRate + 5 && accuracy >= 98 && (hire.currentCapabilityId || 1) < capsList.length - 2) {
+    const currentCapId = hire.currentCapabilityId || 1;
+    const advancedCap = capsList.find((c) => c.id > currentCapId + 1) || capsList[capsList.length - 1];
+    if (advancedCap && advancedCap.id !== currentCapId) {
+      return {
+        decisionType: "jump_ahead",
+        targetCapId: advancedCap.id,
+        targetActor: `Supervisor (${supervisorName})`,
+        urgency: "Monitor",
+        actionTitle: `Fast-Track Jump to Capability ${advancedCap.id}: ${advancedCap.name}`,
+        actionDesc:
+          `${firstName} is significantly exceeding standard ramp pace (${currentPickRate} vs target ${targetPickRate}, ${accuracy}% accuracy). System approves jumping directly to ${advancedCap.name}.`,
+        practicalStep: `Assign ${advancedCap.name} for next shift wave.`,
+        decisionRationale:
+          "Exceptional performance evidence justifies jumping ahead past routine practice.",
+        interimStatus: "Doing well",
+        interimStatusReason: `Exceeding pace curve; fast-tracked to Capability ${advancedCap.id}.`,
+      };
+    }
   }
 
   // Normal progression: find next unmastered capability in sequence respecting required prerequisites
@@ -1903,7 +1987,7 @@ function chooseNextAction(
     return Boolean(st && (st.mastery === "mastered" || st.mastery === "proficient"));
   };
 
-  const nextUnmastered = DARK_STORE_CAPABILITIES.find((c) => {
+  const nextUnmastered = capsList.find((c) => {
     const st = capabilities[c.id];
     const isUnmastered = !st || (st.mastery !== "mastered" && st.mastery !== "proficient");
     if (!isUnmastered) return false;
@@ -2115,7 +2199,7 @@ function check(stageInput: CheckStageInput): {
         capState.reinforcementCount += 1;
         capState.notes = `Partial recovery (${outcomePickRate}/hr). Continued practice required.`;
       } else {
-        finalStatus = "At risk";
+        finalStatus = understoodRootCause === "safety_blocker" ? "At risk" : "Needs attention";
         finalStatusReason = `Performance stalled at ${outcomePickRate}/hr despite intervention; reassessing root cause for next shift.`;
         action.status = "completed";
 
@@ -2226,7 +2310,7 @@ export function executeCoordinationLoop(input: LoopExecutionInput): PatternSynth
   });
 
   // 7. MILESTONE COMPARISON (Pure, read-only diagnostic input for Dean)
-  const relevantMilestone = getRelevantMilestoneForDay(input.dayNumber);
+  const relevantMilestone = getRelevantMilestoneForDay(input.dayNumber, input.hire);
   let milestoneCoordination: MilestoneCoordinationDecision | undefined = undefined;
   let activeRampUp: RampUpPlanState | undefined = input.hire.rampUpPlan;
 
@@ -2488,10 +2572,14 @@ export function evaluateDay10Outcome(
   latestManagerSignal?: ManagerSignal
 ): Day10EvaluationResult {
   const capabilities = hire.capabilities || {};
+  const capsList = getCapabilityDefinitions(hire);
+  const isDarkStore = hire.roleId === "dark_store_picker" || hire.roleTitle === "Dark Store Picker";
+
+  const defaultTarget = isDarkStore ? 50 : 20;
   const currentWork = latestWorkSignal || hire.daysHistory[hire.daysHistory.length - 1]?.workSignal || {
     dayNumber: 10,
-    targetPickRate: 50,
-    actualPickRate: 50,
+    targetPickRate: defaultTarget,
+    actualPickRate: defaultTarget,
     accuracyRate: 98,
     ordersCompleted: 60,
     targetOrders: 60,
@@ -2504,11 +2592,12 @@ export function evaluateDay10Outcome(
 
   const modulesCompleted = hire.modulesCompleted ?? 10;
   const pickRate = currentWork.actualPickRate;
-  const targetPickRate = currentWork.targetPickRate || 50;
+  const targetPickRate = currentWork.targetPickRate || defaultTarget;
   const accuracy = currentWork.accuracyRate;
   const helpRequests = currentWork.helpRequestsCount ?? 0;
 
-  const safetyCap = capabilities[1];
+  const safetyCapDef = capsList.find((c) => c.code.includes("SAFETY") || c.id === 1) || capsList[0];
+  const safetyCap = capabilities[safetyCapDef.id];
   const textRaw = `${latestDailySignal?.rawText || ""} ${latestDailySignal?.issue || ""}`.toLowerCase();
   const mgrNotes = (latestManagerSignal?.notes || "").toLowerCase();
   const isSafetyClear = Boolean(
@@ -2519,12 +2608,17 @@ export function evaluateDay10Outcome(
     !/\bppe\b/i.test(mgrNotes)
   );
 
+  const totalCaps = capsList.length;
+  const minRequiredCaps = isDarkStore ? 18 : 14;
+
   const isTrainingComplete = modulesCompleted >= 10;
-  const isCapabilitiesDemonstrated = demonstratedCount >= 14;
+  const isCapabilitiesDemonstrated = demonstratedCount >= minRequiredCaps;
   const isPerformanceAdequate = pickRate >= targetPickRate;
   const isAccuracyAcceptable = accuracy >= 98;
   const isIndependent = helpRequests <= 1 && latestManagerSignal?.issueCategory !== "Confidence" && latestManagerSignal?.state !== "Struggling";
   const hasNoCriticalBlockers = hire.status !== "At risk" && latestDailySignal?.category !== "Tool";
+
+  const speedUnit = isDarkStore ? "picks/hr" : "items/min";
 
   const verifiedCriteria = [
     {
@@ -2535,12 +2629,12 @@ export function evaluateDay10Outcome(
     {
       name: "Required Capabilities Demonstrated",
       met: isCapabilitiesDemonstrated,
-      detail: `${demonstratedCount}/20 capabilities demonstrated on floor`,
+      detail: `${demonstratedCount}/${totalCaps} capabilities demonstrated on floor`,
     },
     {
       name: "Floor Productivity Target",
       met: isPerformanceAdequate,
-      detail: `${pickRate} picks/hr (target ${targetPickRate}/hr)`,
+      detail: `${pickRate} ${speedUnit} (target ${targetPickRate} ${speedUnit})`,
     },
     {
       name: "Scanning Accuracy Floor",
@@ -2555,7 +2649,7 @@ export function evaluateDay10Outcome(
     {
       name: "Safety & Zone Compliance Clear",
       met: isSafetyClear,
-      detail: isSafetyClear ? "Capability 1 verified; zero safety violations" : "Safety protocol or PPE issue pending",
+      detail: isSafetyClear ? `Capability ${safetyCapDef.id} verified; zero safety violations` : "Safety protocol or PPE issue pending",
     },
     {
       name: "No Unresolved Critical Blockers",
@@ -2566,6 +2660,7 @@ export function evaluateDay10Outcome(
 
   const unresolvedBlockers = verifiedCriteria.filter((c) => !c.met).map((c) => c.name);
   const isReady = unresolvedBlockers.length === 0;
+  const roleTitle = hire.roleTitle || (isDarkStore ? "Dark Store Picker" : "Retail Cashier");
 
   return {
     isReady,
@@ -2576,7 +2671,7 @@ export function evaluateDay10Outcome(
     verifiedCriteria,
     unresolvedBlockers,
     recommendedAction: isReady
-      ? "Certify as Autonomous Dark Store Picker for standard floor shift assignment."
+      ? `Certify as Autonomous ${roleTitle} for standard floor shift assignment.`
       : `Address ${unresolvedBlockers[0]} before approving autonomous certification.`,
   };
 }

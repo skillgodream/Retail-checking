@@ -2,12 +2,15 @@ import {
   NewHire,
   OrganizationSummary,
   DARK_STORE_CAPABILITIES,
+  RETAIL_CASHIER_CAPABILITIES,
   CapabilityState,
 } from "../types";
 
-export function createDefaultCapabilitiesLedger(): Record<number, CapabilityState> {
+export function createDefaultCapabilitiesLedger(roleId?: string): Record<number, CapabilityState> {
+  const isDarkStore = roleId === "dark_store_picker";
+  const caps = isDarkStore ? DARK_STORE_CAPABILITIES : RETAIL_CASHIER_CAPABILITIES;
   const ledger: Record<number, CapabilityState> = {};
-  for (const cap of DARK_STORE_CAPABILITIES) {
+  for (const cap of caps) {
     ledger[cap.id] = {
       capabilityId: cap.id,
       exposure: "not_exposed",
@@ -22,7 +25,7 @@ export function createDefaultCapabilitiesLedger(): Record<number, CapabilityStat
 }
 
 function buildRahulLedger(): Record<number, CapabilityState> {
-  const ledger = createDefaultCapabilitiesLedger();
+  const ledger = createDefaultCapabilitiesLedger("retail_cashier");
   ledger[1] = {
     capabilityId: 1,
     exposure: "exposed",
@@ -31,7 +34,7 @@ function buildRahulLedger(): Record<number, CapabilityState> {
     mastery: "proficient",
     lastAssessedAt: "Day 1",
     reinforcementCount: 0,
-    notes: "Adheres to PPE and zone safety.",
+    notes: "Adheres to counter safety, cash box security, and till login SOP.",
   };
   ledger[2] = {
     capabilityId: 2,
@@ -41,26 +44,27 @@ function buildRahulLedger(): Record<number, CapabilityState> {
     mastery: "proficient",
     lastAssessedAt: "Day 1",
     reinforcementCount: 0,
-    notes: "Comfortable with handheld terminal and Bluetooth ring scanner.",
+    notes: "Comfortable with POS terminal interface and customer display.",
   };
   ledger[3] = {
     capabilityId: 3,
+    exposure: "exposed",
+    evidence: "demonstrated",
+    performance: "on_target",
+    mastery: "proficient",
+    lastAssessedAt: "Day 2",
+    reinforcementCount: 0,
+    notes: "Smooth optical barcode scanning on standard FMCG packages.",
+  };
+  ledger[4] = {
+    capabilityId: 4,
     exposure: "exposed",
     evidence: "inconsistent",
     performance: "below_target",
     mastery: "in_progress",
     lastAssessedAt: "Day 3",
     reinforcementCount: 1,
-    notes: "Confused by Aisles 4-8 shelf coordinates. Requires buddy walkthrough.",
-  };
-  ledger[4] = {
-    capabilityId: 4,
-    exposure: "exposed",
-    evidence: "emerging",
-    performance: "below_target",
-    mastery: "in_progress",
-    lastAssessedAt: "Day 2",
-    reinforcementCount: 0,
+    notes: "Struggles looking up PLU codes for loose produce (apples, onions). Needs buddy cheat sheet walkthrough.",
   };
   ledger[5] = {
     capabilityId: 5,
@@ -70,15 +74,14 @@ function buildRahulLedger(): Record<number, CapabilityState> {
     mastery: "in_progress",
     lastAssessedAt: "Day 2",
     reinforcementCount: 0,
-    notes: "Picks solo snacks orders, but multi-aisle grocery slows pace.",
+    notes: "Weighs items on Till scale, but manual tare entry slows billing pace.",
   };
   return ledger;
 }
 
 function buildPriyaLedger(): Record<number, CapabilityState> {
-  const ledger = createDefaultCapabilitiesLedger();
-  // Capabilities 1 to 15 fully mastered or proficient
-  for (let i = 1; i <= 15; i++) {
+  const ledger = createDefaultCapabilitiesLedger("retail_cashier");
+  for (let i = 1; i <= 16; i++) {
     ledger[i] = {
       capabilityId: i,
       exposure: "exposed",
@@ -89,30 +92,11 @@ function buildPriyaLedger(): Record<number, CapabilityState> {
       reinforcementCount: 0,
     };
   }
-  ledger[16] = {
-    capabilityId: 16,
-    exposure: "exposed",
-    evidence: "demonstrated",
-    performance: "on_target",
-    mastery: "proficient",
-    lastAssessedAt: "Day 8",
-    reinforcementCount: 0,
-  };
-  ledger[20] = {
-    capabilityId: 20,
-    exposure: "exposed",
-    evidence: "emerging",
-    performance: "on_target",
-    mastery: "in_progress",
-    lastAssessedAt: "Day 8",
-    reinforcementCount: 0,
-    notes: "Sustaining 54 items/hr across all zones. Candidate for mentor.",
-  };
   return ledger;
 }
 
 function buildAmitLedger(): Record<number, CapabilityState> {
-  const ledger = createDefaultCapabilitiesLedger();
+  const ledger = createDefaultCapabilitiesLedger("retail_cashier");
   ledger[1] = {
     capabilityId: 1,
     exposure: "exposed",
@@ -133,15 +117,6 @@ function buildAmitLedger(): Record<number, CapabilityState> {
   };
   ledger[3] = {
     capabilityId: 3,
-    exposure: "exposed",
-    evidence: "demonstrated",
-    performance: "on_target",
-    mastery: "proficient",
-    lastAssessedAt: "Day 3",
-    reinforcementCount: 0,
-  };
-  ledger[5] = {
-    capabilityId: 5,
     exposure: "exposed",
     evidence: "demonstrated",
     performance: "on_target",
@@ -157,7 +132,7 @@ function buildAmitLedger(): Record<number, CapabilityState> {
     mastery: "in_progress",
     lastAssessedAt: "Day 4",
     reinforcementCount: 1,
-    notes: "Variant rush: confused 200g vs 500g pouches; 3 mis-picks at QC.",
+    notes: "Rushing during rush hour: confused 200g vs 500g variant pricing; 2 item void overrides needed.",
   };
   return ledger;
 }
@@ -165,22 +140,22 @@ function buildAmitLedger(): Record<number, CapabilityState> {
 export const initialRahul: NewHire = {
   id: "nh-rahul-01",
   name: "Rahul Sharma",
-  roleId: "quick_commerce_picker",
-  roleTitle: "Dark Store Picker",
-  storeLocation: "Dark Store #104 (Indiranagar Central)",
+  roleId: "retail_cashier",
+  roleTitle: "Retail Cashier",
+  storeLocation: "Reliance Smart Point #204 (Indiranagar Central)",
   avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
   startDate: "2026-09-01",
-  currentDay: 3, // Starting at Day 3 where the MVP scenario pivots!
+  currentDay: 3,
   shift: "Morning (07:00 - 15:30)",
-  supervisor: "Suresh K. (Shift In-charge)",
-  buddy: "Vikram R. (Senior Picker)",
+  supervisor: "Suresh K. (Store Supervisor)",
+  buddy: "Vikram R. (Senior Cashier)",
   status: "Needs attention",
-  statusReason: "Pick rate below curve (35 vs 50) + reported aisle confusion + frequent manager support",
-  recommendedActionSnippet: "Buddy walkthrough of Aisles 4-8 rack navigation & short re-demonstration",
+  statusReason: "Scan speed below curve (14 vs 20 items/min) + reported PLU lookup confusion + frequent manager support",
+  recommendedActionSnippet: "Buddy walkthrough of Till 1 produce PLU cheat sheet & quick fruit lookup practice",
   modulesCompleted: 3,
   quizAverageScore: 94,
   completedModuleIds: ["lms-mod-01", "lms-mod-02", "lms-mod-03"],
-  currentCapabilityId: 3,
+  currentCapabilityId: 4,
   overallReadinessScore: 35,
   capabilities: buildRahulLedger(),
   daysHistory: [
@@ -190,14 +165,14 @@ export const initialRahul: NewHire = {
       dailySignal: {
         id: "sig-r-d1",
         dayNumber: 1,
-        rawText: "Shadowed Vikram on picking dry items. Store is very fast paced but scanner is easy to hold.",
+        rawText: "Shadowed Vikram on Till 1 checkout. Counter is fast-paced but POS screen and barcode scanner are easy to handle.",
         inputMethod: "voice",
         issue: "None / Settling in",
         confidence: "Medium",
         possibleImpact: "Normal ramp-up",
         category: "General",
-        summary: "Shadowed senior picker, comfortable holding scanner.",
-        companionResponse: "Great first day Rahul! Focus on getting comfortable with store safety and pacing.",
+        summary: "Shadowed senior cashier, comfortable operating POS barcode scanner.",
+        companionResponse: "Great first day Rahul! Focus on getting comfortable with POS login and receipt printer procedures.",
         timestamp: "09:30 AM",
       },
       managerSignal: {
@@ -206,17 +181,17 @@ export const initialRahul: NewHire = {
         managerName: "Suresh K.",
         state: "Doing well",
         issueCategory: undefined,
-        notes: "Good attendance, shadowed buddy Vikram attentively.",
+        notes: "Good attendance, shadowed buddy Vikram attentively at Express Till 1.",
         timestamp: "04:00 PM",
       },
       workSignal: {
         dayNumber: 1,
-        targetPickRate: 25,
-        actualPickRate: 22,
+        targetPickRate: 10,
+        actualPickRate: 9,
         accuracyRate: 99,
         ordersCompleted: 24,
         targetOrders: 28,
-        gapIdentified: "Minor initial pacing difference (shadowing)",
+        gapIdentified: "Minor initial billing pace difference (shadowing)",
       },
       statusAtEnd: "Doing well",
       statusReason: "Settling in smoothly on Day 1 orientation.",
@@ -227,14 +202,14 @@ export const initialRahul: NewHire = {
       dailySignal: {
         id: "sig-r-d2",
         dayNumber: 2,
-        rawText: "Started picking solo orders in the snacks section. Felt good about scanning speed.",
+        rawText: "Started billing solo customer baskets at Express Till 1. Felt good about scanning barcode speed.",
         inputMethod: "text",
         issue: "None / Positive progress",
         confidence: "Medium",
         possibleImpact: "Steady ramp-up",
         category: "General",
-        summary: "Picked solo orders in snacks aisle with good scan speed.",
-        companionResponse: "Nice work picking solo orders! Keep eyes on item counts.",
+        summary: "Billed solo customer baskets at Express Till with good scan speed.",
+        companionResponse: "Nice work handling express checkout! Keep eyes on item quantity counts.",
         timestamp: "02:15 PM",
       },
       managerSignal: {
@@ -243,20 +218,20 @@ export const initialRahul: NewHire = {
         managerName: "Suresh K.",
         state: "Doing well",
         issueCategory: undefined,
-        notes: "Handling snack orders independently. Accuracy is strong.",
+        notes: "Handling express customer billing independently. Line accuracy is strong.",
         timestamp: "04:15 PM",
       },
       workSignal: {
         dayNumber: 2,
-        targetPickRate: 35,
-        actualPickRate: 32,
+        targetPickRate: 15,
+        actualPickRate: 14,
         accuracyRate: 99,
         ordersCompleted: 38,
         targetOrders: 42,
         gapIdentified: "Slight pacing gap, normal for Day 2",
       },
       statusAtEnd: "Doing well",
-      statusReason: "Independent picking started, accuracy 99%.",
+      statusReason: "Independent express billing started, accuracy 99%.",
     },
     {
       dayNumber: 3,
@@ -264,14 +239,14 @@ export const initialRahul: NewHire = {
       dailySignal: {
         id: "sig-r-d3",
         dayNumber: 3,
-        rawText: "I know how to scan but I am still confused where products are in aisles 4 to 8.",
+        rawText: "I know how to scan barcodes, but I am still confused looking up manual PLU codes for loose produce and fruits at Till 1.",
         inputMethod: "voice",
         issue: "Location navigation",
         confidence: "Low",
         possibleImpact: "Slow picking",
         category: "Environment",
-        summary: "Scans properly but struggles to locate products in beverage and cold aisles.",
-        companionResponse: "Thanks for reporting this Rahul! Dark store rack numbering takes a few shifts to click. We are arranging a quick walkthrough with Vikram.",
+        summary: "Scans barcoded items properly but struggles with manual PLU code lookup for loose fruits and vegetables.",
+        companionResponse: "Thanks for reporting this Rahul! Fruit & vegetable PLU codes take a few shifts to memorize. We are arranging a quick cheat sheet walkthrough with Vikram.",
         timestamp: "11:40 AM",
       },
       managerSignal: {
@@ -280,29 +255,29 @@ export const initialRahul: NewHire = {
         managerName: "Suresh K.",
         state: "Needs support",
         issueCategory: "Process",
-        notes: "Rahul asks for location help repeatedly on multi-aisle grocery orders. Speed is stalling.",
+        notes: "Rahul asks for PLU assistance repeatedly when billing un-barcoded produce orders. Checkout line is stalling.",
         timestamp: "01:20 PM",
       },
       workSignal: {
         dayNumber: 3,
-        targetPickRate: 50,
-        actualPickRate: 35,
+        targetPickRate: 20,
+        actualPickRate: 14,
         accuracyRate: 98,
         ordersCompleted: 44,
         targetOrders: 65,
-        gapIdentified: "15 items/hr gap below curve; accuracy remains high (98%)",
+        gapIdentified: "6 items/min gap below curve; scan accuracy remains high (98%)",
       },
       identifiedPattern: {
         id: "pat-r-d3",
         dayNumber: 3,
-        patternName: "Environmental/process familiarity issue",
+        patternName: "Manual Produce PLU Lookup & Code Search Friction",
         patternConfidence: "High",
-        diagnosis: "New hire reports confusion finding product locations + Manager reports frequent support needed + Pick speed (35/hr) lags target (50/hr) while accuracy is high (98%). This confirms spatial layout friction rather than lack of effort.",
+        diagnosis: "New hire reports confusion looking up PLU codes + Manager reports frequent support needed at Till 1 + Checkout scan speed (14 items/min) lags target (20 items/min) while accuracy is high (98%). This confirms code lookup friction rather than lack of effort.",
         category: "Environment",
         connectedSignalSummary: [
-          "Rahul: 'I know how to scan but I am still confused where products are in aisles 4 to 8.'",
-          "Manager: 'Needs support' on Process / rack locations",
-          "Work Signal: Pick rate 35 vs 50 target (30% gap), 98% accuracy",
+          "Rahul: 'I know how to scan barcodes, but I keep getting stuck looking up manual PLU codes for loose produce at Till 1.'",
+          "Manager: 'Needs support' on Process / PLU codes",
+          "Work Signal: Scan speed 14 vs 20 items/min target (30% gap), 98% accuracy",
         ],
         detectedAt: "Today, 01:25 PM",
       },
@@ -310,16 +285,16 @@ export const initialRahul: NewHire = {
         id: "act-r-d3",
         dayNumber: 3,
         actionType: "buddy_walkthrough",
-        title: "Manager/buddy walkthrough of location navigation + short re-demonstration",
-        description: "Pair with Senior Picker Vikram for a 15-minute floor walkthrough focusing on Aisles 4-8 (beverages & dairy cold room) shelf labeling. Re-check picking pace during tomorrow's shift.",
+        title: "Manager/buddy walkthrough of Till 1 PLU code lookup + produce cheat sheet practice",
+        description: "Pair with Senior Cashier Vikram for a 15-minute floor walkthrough focusing on loose produce PLU cheat sheet codes (apples, onions, potatoes) at Till 1. Re-check checkout pace during tomorrow's shift.",
         targetActor: "Buddy (Vikram) & Manager (Suresh K.)",
         urgency: "Next Shift",
-        smallestPracticalStep: "15-minute floor walkthrough before morning peak order wave.",
+        smallestPracticalStep: "15-minute produce PLU cheat sheet walkthrough before peak evening checkout wave.",
         status: "pending",
         createdAt: "Today, 01:25 PM",
       },
       statusAtEnd: "Needs attention",
-      statusReason: "Aisle navigation friction causing speed gap; recommended buddy walkthrough pending.",
+      statusReason: "Produce PLU code friction causing checkout queue delay; recommended buddy walkthrough pending.",
     },
     {
       dayNumber: 4,
@@ -327,14 +302,14 @@ export const initialRahul: NewHire = {
       dailySignal: {
         id: "sig-r-d4",
         dayNumber: 4,
-        rawText: "Vikram showed me how the bin codes read left-to-right on high racks. Felt much clearer during the afternoon.",
+        rawText: "Vikram showed me the quick-key PLU cheat sheet on Till 1 screen. Felt much faster billing loose vegetables in the afternoon.",
         inputMethod: "voice",
         issue: "Aisle navigation improving",
         confidence: "Medium",
         possibleImpact: "Speed recovering",
         category: "Environment",
-        summary: "Walkthrough completed with buddy Vikram; bin code logic understood.",
-        companionResponse: "Awesome progress Rahul! Applying the bin code logic will save you seconds on every item.",
+        summary: "Walkthrough completed with buddy Vikram; produce PLU key logic understood.",
+        companionResponse: "Awesome progress Rahul! Using the quick-key PLU sheet will save you seconds on every customer order.",
         timestamp: "03:10 PM",
       },
       managerSignal: {
@@ -343,24 +318,24 @@ export const initialRahul: NewHire = {
         managerName: "Suresh K.",
         state: "Needs support",
         issueCategory: "Process",
-        notes: "Completed walkthrough with Vikram. Checking if pick rate jumps tomorrow.",
+        notes: "Completed PLU walkthrough with Vikram. Checking if checkout speed jumps tomorrow.",
         timestamp: "03:45 PM",
       },
       workSignal: {
         dayNumber: 4,
-        targetPickRate: 50,
-        actualPickRate: 41,
+        targetPickRate: 20,
+        actualPickRate: 17,
         accuracyRate: 98,
         ordersCompleted: 54,
         targetOrders: 65,
-        gapIdentified: "Pacing improving (+6 items/hr), approaching target",
+        gapIdentified: "Checkout pacing improving (+3 items/min), approaching target",
       },
       recommendedAction: {
         id: "act-r-d3",
         dayNumber: 4,
         actionType: "buddy_walkthrough",
-        title: "Manager/buddy walkthrough of location navigation + short re-demonstration",
-        description: "Pair with Senior Picker Vikram for a 15-minute floor walkthrough focusing on Aisles 4-8 shelf labeling.",
+        title: "Manager/buddy walkthrough of Till 1 PLU code lookup",
+        description: "Pair with Senior Cashier Vikram for a 15-minute produce PLU walkthrough.",
         targetActor: "Buddy (Vikram)",
         urgency: "Immediate",
         smallestPracticalStep: "15-minute walkthrough completed before shift.",
@@ -374,8 +349,8 @@ export const initialRahul: NewHire = {
         performedBy: "Vikram R. (Buddy)",
         performedAt: "08:15 AM",
         improved: "partial",
-        notes: "Showed bin numbering schema (Rack-Bay-Level). Rahul picked 41 items/hr in the afternoon.",
-        subsequentPickRate: 41,
+        notes: "Showed PLU quick keys (4-digit fruit codes). Rahul billed 17 items/min in the afternoon.",
+        subsequentPickRate: 17,
         subsequentAccuracy: 98,
       },
       statusAtEnd: "Needs attention",
@@ -387,14 +362,14 @@ export const initialRahul: NewHire = {
       dailySignal: {
         id: "sig-r-d5",
         dayNumber: 5,
-        rawText: "I can find dairy and beverages without stopping now. Hit 48 picks in an hour!",
+        rawText: "I can bill loose produce and dairy items without stopping now. Hit 19 items/min in peak hour!",
         inputMethod: "voice",
         issue: "None / On track",
         confidence: "High",
         possibleImpact: "Target achieved",
         category: "General",
-        summary: "Navigating aisles 4-8 independently; hit 48 picks/hr.",
-        companionResponse: "Fantastic work Rahul! You are right on target and your accuracy is outstanding.",
+        summary: "Billing un-barcoded produce independently; hit 19 items/min.",
+        companionResponse: "Fantastic work Rahul! You are right on target and your scan accuracy is outstanding.",
         timestamp: "02:45 PM",
       },
       managerSignal: {
@@ -403,17 +378,17 @@ export const initialRahul: NewHire = {
         managerName: "Suresh K.",
         state: "Doing well",
         issueCategory: undefined,
-        notes: "Substantial jump in speed (48 items/hr). No longer calling for location help.",
+        notes: "Substantial jump in speed (19 items/min). No longer calling for PLU lookup help.",
         timestamp: "04:00 PM",
       },
       workSignal: {
         dayNumber: 5,
-        targetPickRate: 50,
-        actualPickRate: 48,
+        targetPickRate: 20,
+        actualPickRate: 19,
         accuracyRate: 99,
         ordersCompleted: 64,
         targetOrders: 65,
-        gapIdentified: "Gap closed! Within 4% of target with 99% accuracy.",
+        gapIdentified: "Gap closed! Within 5% of target with 99% accuracy.",
       },
       actionOutcome: {
         id: "out-r-d5",
@@ -422,12 +397,12 @@ export const initialRahul: NewHire = {
         performedBy: "Suresh K. (Supervisor)",
         performedAt: "04:05 PM",
         improved: "yes",
-        notes: "Situation fully improved. Rahul is navigating independently and speed is back on expected curve.",
-        subsequentPickRate: 48,
+        notes: "Situation fully improved. Rahul is billing independently and speed is back on expected curve.",
+        subsequentPickRate: 19,
         subsequentAccuracy: 99,
       },
       statusAtEnd: "Doing well",
-      statusReason: "Intervention succeeded. Speed recovered to 48/hr, accuracy 99%.",
+      statusReason: "Intervention succeeded. Speed recovered to 19 items/min, accuracy 99%.",
     },
   ],
 };
@@ -437,9 +412,9 @@ export const initialCohort: NewHire[] = [
   {
     id: "nh-priya-02",
     name: "Priya Sundaram",
-    roleId: "quick_commerce_picker",
-    roleTitle: "Dark Store Picker",
-    storeLocation: "Dark Store #104 (Indiranagar Central)",
+    roleId: "retail_cashier",
+    roleTitle: "Retail Cashier",
+    storeLocation: "Reliance Smart Point #204 (Indiranagar Central)",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
     startDate: "2026-08-27",
     currentDay: 8,
@@ -447,7 +422,7 @@ export const initialCohort: NewHire[] = [
     supervisor: "Suresh K.",
     buddy: "Anita M.",
     status: "Doing well",
-    statusReason: "Consistently exceeding target pick rate (54 vs 50) with 99% accuracy.",
+    statusReason: "Consistently exceeding target billing rate (22 vs 20 items/min) with 99.5% line accuracy and zero cash variance.",
     recommendedActionSnippet: "No intervention needed; consider peer mentor candidate.",
     modulesCompleted: 10,
     quizAverageScore: 98,
@@ -473,13 +448,13 @@ export const initialCohort: NewHire[] = [
         dailySignal: {
           id: "sig-p-d8",
           dayNumber: 8,
-          rawText: "Smooth shift today. Fast order dispatch on snacks and beverages.",
+          rawText: "Smooth shift today. Fast customer checkout across cash, card, and UPI payment modes.",
           inputMethod: "text",
           issue: "None",
           confidence: "High",
           possibleImpact: "High productivity",
           category: "General",
-          summary: "Confident picking across all zones.",
+          summary: "Confident billing across all payment tenders.",
           timestamp: "08:00 PM",
         },
         managerSignal: {
@@ -487,14 +462,14 @@ export const initialCohort: NewHire[] = [
           dayNumber: 8,
           managerName: "Suresh K.",
           state: "Doing well",
-          notes: "Very dependable, high accuracy.",
+          notes: "Very dependable, high accuracy, zero cash register discrepancy.",
           timestamp: "09:00 PM",
         },
         workSignal: {
           dayNumber: 8,
-          targetPickRate: 50,
-          actualPickRate: 54,
-          accuracyRate: 99,
+          targetPickRate: 20,
+          actualPickRate: 22,
+          accuracyRate: 99.5,
           ordersCompleted: 72,
           targetOrders: 65,
         },
@@ -506,9 +481,9 @@ export const initialCohort: NewHire[] = [
   {
     id: "nh-amit-03",
     name: "Amit Verma",
-    roleId: "quick_commerce_picker",
-    roleTitle: "Dark Store Picker",
-    storeLocation: "Dark Store #104 (Indiranagar Central)",
+    roleId: "retail_cashier",
+    roleTitle: "Retail Cashier",
+    storeLocation: "Reliance Smart Point #204 (Indiranagar Central)",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
     startDate: "2026-08-31",
     currentDay: 4,
@@ -516,7 +491,7 @@ export const initialCohort: NewHire[] = [
     supervisor: "Suresh K.",
     buddy: "Vikram R.",
     status: "At risk",
-    statusReason: "Accuracy dropped to 86% due to variant confusion (e.g. 250g vs 500g pouch).",
+    statusReason: "Scan accuracy dropped to 86% due to pricing variant confusion (e.g. 200g vs 500g SKU barcode mismatch).",
     recommendedActionSnippet: "Demonstrate task: 3-point check (Brand, Variant Grammage, Barcode)",
     modulesCompleted: 4,
     quizAverageScore: 92,
@@ -531,13 +506,13 @@ export const initialCohort: NewHire[] = [
         dailySignal: {
           id: "sig-a-d4",
           dayNumber: 4,
-          rawText: "The packaging looks so similar between 200g and 500g packets. I scanned one by mistake.",
+          rawText: "The packaging looks so similar between 200g and 500g packets. I scanned the wrong barcode by mistake.",
           inputMethod: "voice",
           issue: "SKU variant confusion",
           confidence: "Low",
-          possibleImpact: "Mis-picks and customer refunds",
+          possibleImpact: "Price mismatch and customer voids",
           category: "Process",
-          summary: "Confusing identical product packaging variants.",
+          summary: "Confusing identical product packaging variants at checkout.",
           timestamp: "12:30 PM",
         },
         managerSignal: {
@@ -546,29 +521,29 @@ export const initialCohort: NewHire[] = [
           managerName: "Suresh K.",
           state: "Struggling",
           issueCategory: "Accuracy",
-          notes: "3 mis-picks caught at QC counter today. Amit is rushing without checking grammage.",
+          notes: "2 price void overrides requested at Till today. Amit is rushing without checking grammage.",
           timestamp: "02:00 PM",
         },
         workSignal: {
           dayNumber: 4,
-          targetPickRate: 45,
-          actualPickRate: 38,
+          targetPickRate: 18,
+          actualPickRate: 14,
           accuracyRate: 86,
           ordersCompleted: 42,
           targetOrders: 55,
-          gapIdentified: "Accuracy at 86% is critically below 98% threshold",
+          gapIdentified: "Line accuracy at 86% is critically below 98% threshold",
         },
         identifiedPattern: {
           id: "pat-a-d4",
           dayNumber: 4,
-          patternName: "Item variant differentiation & verification rush",
+          patternName: "Item variant differentiation & barcode verification rush",
           patternConfidence: "High",
-          diagnosis: "Worker reports identical visual packaging + Manager catches 3 mis-picks at dispatch QC + Accuracy is 86%. Speed is acceptable but accuracy is at risk.",
+          diagnosis: "Worker reports identical visual packaging + Manager catches 2 void requests at Till + Accuracy is 86%. Speed is acceptable but accuracy is at risk.",
           category: "Process",
           connectedSignalSummary: [
             "Amit: 'Packaging looks so similar between 200g and 500g packets'",
-            "Manager: 'Struggling' on Accuracy (3 mis-picks)",
-            "Work Signal: 86% accuracy vs 98% quality floor",
+            "Manager: 'Struggling' on Accuracy (2 line voids)",
+            "Work Signal: 86% line accuracy vs 98% quality floor",
           ],
           detectedAt: "Today, 02:05 PM",
         },
@@ -576,11 +551,11 @@ export const initialCohort: NewHire[] = [
           id: "act-a-d4",
           dayNumber: 4,
           actionType: "demonstrate_task",
-          title: "Demonstrate 3-Point Variant Check (Brand, Weight, Barcode) on floor",
-          description: "Supervisor conducts 10-minute floor demo showing how to verify variant weights before bin scan.",
+          title: "Demonstrate 3-Point Variant Check (Brand, Weight, Barcode) at POS",
+          description: "Supervisor conducts 10-minute counter demo showing how to verify variant weights before barcode scan.",
           targetActor: "Manager (Suresh K.)",
           urgency: "Immediate",
-          smallestPracticalStep: "10-minute floor demo with 5 common tricky SKUs.",
+          smallestPracticalStep: "10-minute counter demo with 5 common tricky SKUs.",
           status: "pending",
           createdAt: "Today, 02:05 PM",
         },
@@ -592,39 +567,39 @@ export const initialCohort: NewHire[] = [
 ];
 
 export const initialOrgSummary: OrganizationSummary = {
-  id: "org-qc-bengaluru",
-  name: "FastCart Dark Store Operations",
-  storeName: "Dark Store #104 (Indiranagar Central)",
+  id: "org-retail-bengaluru",
+  name: "Reliance Smart Point Operations",
+  storeName: "Reliance Smart Point #204 (Indiranagar Central)",
   totalNewHires: 3,
   doingWellCount: 1,
   needsAttentionCount: 1,
   atRiskCount: 1,
   commonProblems: [
     {
-      problem: "Aisle & Bin Navigation (Aisles 4-8)",
+      problem: "Manual Produce PLU Lookup & Code Search (Till 1)",
       count: 2,
-      impact: "Initial pick speed suppression in Days 2–4",
+      impact: "Initial checkout line delay in Days 2–4",
     },
     {
-      problem: "Packaging Variant Confusion (Weight/Size)",
+      problem: "Packaging Variant Confusion (Grammage/Price)",
       count: 1,
-      impact: "Mis-picks at QC checkout stage",
+      impact: "Line item voids at POS register",
     },
     {
-      problem: "Handheld Scanner Bluetooth Reconnection",
+      problem: "Card Terminal Bluetooth Reconnection",
       count: 1,
-      impact: "Occasional 3-minute scan delay",
+      impact: "Occasional 2-minute payment processing pause",
     },
   ],
   emergingPatterns: [
     {
-      pattern: "Dark Store Spatial Familiarity Bottleneck",
-      trend: "Peak on Days 3-4 across new cohorts",
+      pattern: "Till PLU & Produce Lookup Bottleneck",
+      trend: "Peak on Days 3-4 across new cashier cohorts",
       impactedCount: 2,
     },
     {
-      pattern: "Variant Check Rush under Order Timers",
-      trend: "Occurs when workers attempt 45+ pick rate too early",
+      pattern: "Variant Check Rush under Queue Peak",
+      trend: "Occurs when cashiers attempt 20+ items/min rate too early",
       impactedCount: 1,
     },
   ],

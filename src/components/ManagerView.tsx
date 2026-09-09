@@ -265,13 +265,15 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             </h2>
             <p className="text-xs sm:text-sm font-normal text-white/90 leading-relaxed mt-1">
               {currentRecord.identifiedPattern?.diagnosis ||
-                "Rahul is experiencing dark store rack navigation friction in Aisles 4-8. Accuracy is 98%, but aisle searches slow down pick pace."}
+                (activeHire.roleId === "dark_store_picker"
+                  ? "Rahul is experiencing dark store rack navigation friction in Aisles 4-8. Accuracy is 98%, but aisle searches slow down pick pace."
+                  : "Rahul is experiencing produce PLU code lookup friction at Till 1. Accuracy is 98%, but code lookups slow down checkout tempo.")}
             </p>
           </div>
 
           <div className="pt-2 border-t border-white/15 flex items-center justify-between text-xs font-bold text-white/95">
             <span>
-              Picks: {currentRecord.workSignal.actualPickRate}/hr (Target: {currentRecord.workSignal.targetPickRate})
+              {activeHire.roleId === "dark_store_picker" ? "Picks" : "Scan Rate"}: {currentRecord.workSignal.actualPickRate}/{activeHire.roleId === "dark_store_picker" ? "hr" : "min"} (Target: {currentRecord.workSignal.targetPickRate})
             </span>
             <span className="text-[11px] font-medium text-white/80">
               Buddy: {activeHire.buddy.split(" ")[0]}
@@ -378,7 +380,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 Worker Signal
               </span>
               <span className="text-[11px] text-slate-500 font-medium mt-0.5 block truncate max-w-[130px]">
-                "{currentRecord.dailySignal?.rawText || "Aisles 4-8 confusion"}"
+                "{currentRecord.dailySignal?.rawText || (activeHire.roleId === "dark_store_picker" ? "Aisles 4-8 confusion" : "PLU code hesitation")}"
               </span>
             </div>
           </button>
@@ -396,7 +398,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 Root Cause
               </span>
               <span className="text-[11px] text-purple-700 font-bold mt-0.5 block">
-                {currentRecord.identifiedPattern?.patternName || "Rack Navigation"}
+                {currentRecord.identifiedPattern?.patternName || (activeHire.roleId === "dark_store_picker" ? "Rack Navigation" : "PLU Code Lookup")}
               </span>
             </div>
           </button>
@@ -432,7 +434,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 Floor Pace
               </span>
               <span className="text-[11px] text-amber-700 font-bold mt-0.5 block">
-                {currentRecord.workSignal.actualPickRate}/hr (98% Acc)
+                {currentRecord.workSignal.actualPickRate}/{activeHire.roleId === "dark_store_picker" ? "hr" : "min"} (98% Acc)
               </span>
             </div>
           </button>
@@ -516,7 +518,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             type="text"
             value={managerNote}
             onChange={(e) => setManagerNote(e.target.value)}
-            placeholder="e.g. Needs help finding items in Aisles 4 to 8"
+            placeholder={activeHire.roleId === "dark_store_picker" ? "e.g. Needs help finding items in Aisles 4 to 8" : "e.g. Needs help with produce PLU lookup or cash change tally"}
             className="w-full text-xs p-3 rounded-2xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
           />
         </div>
@@ -647,7 +649,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             </div>
 
             <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 text-xs text-blue-950 italic">
-              "{currentRecord.dailySignal?.rawText || "Confused where products are located in Aisles 4-8."}"
+              "{currentRecord.dailySignal?.rawText || (activeHire.roleId === "dark_store_picker" ? "Confused where products are located in Aisles 4-8." : "Confused with loose produce PLU lookup at Till 1.")}"
             </div>
 
             <div className="space-y-1.5 text-xs text-slate-600">
@@ -685,7 +687,9 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
               <span className="text-[10px] font-bold text-purple-700 uppercase">Diagnosis:</span>
               <p className="text-slate-800 font-medium">
                 {currentRecord.identifiedPattern?.diagnosis ||
-                  "Navigation bottleneck in Aisles 4-8. Accuracy is solid (98%), indicating high diligence. Only physical shelf familiarity is missing."}
+                  (activeHire.roleId === "dark_store_picker"
+                    ? "Navigation bottleneck in Aisles 4-8. Accuracy is solid (98%), indicating high diligence. Only physical shelf familiarity is missing."
+                    : "PLU code lookup bottleneck at Till 1. Accuracy is solid (98%), indicating high diligence. Only produce code familiarity is missing.")}
               </p>
             </div>
 
@@ -726,10 +730,10 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 </span>
               )}
               <h4 className="text-xs font-bold text-emerald-950">
-                {currentRecord.recommendedAction?.title || "15-minute Aisle 4-8 Walkthrough"}
+                {currentRecord.recommendedAction?.title || (activeHire.roleId === "dark_store_picker" ? "15-minute Aisle 4-8 Walkthrough" : "15-minute PLU Code Lookup Walkthrough")}
               </h4>
               <p className="text-xs text-emerald-900">
-                {currentRecord.recommendedAction?.description || "Senior Buddy walks rack locations before the evening rush."}
+                {currentRecord.recommendedAction?.description || (activeHire.roleId === "dark_store_picker" ? "Senior Buddy walks rack locations before the evening rush." : "Senior Buddy walks produce PLU cheat sheet before peak checkout rush.")}
               </p>
               {currentRecord.recommendedAction?.rationale && (
                 <p className="text-[11px] text-emerald-800 italic pt-0.5">

@@ -20,6 +20,7 @@ interface ChatBotPulloutProps {
   learnerName?: string;
   buddyName?: string;
   isHindi?: boolean;
+  roleId?: string;
   onAlertBuddy?: () => void;
 }
 
@@ -35,6 +36,7 @@ export const ChatBotPullout: React.FC<ChatBotPulloutProps> = ({
   learnerName = "Rahul",
   buddyName = "Vikram",
   isHindi = true,
+  roleId,
   onAlertBuddy,
 }) => {
   // Pill state: pre-hidden by default (isTucked = true)
@@ -146,13 +148,15 @@ export const ChatBotPullout: React.FC<ChatBotPulloutProps> = ({
   };
 
   const handleVoiceInput = () => {
+    const isDarkStore = roleId === "dark_store_picker";
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       handleSendMessage(
         isHindi
-          ? "आइसल 4 से 8 में सामान ढूंढने में मदद चाहिए।"
-          : "I need help finding items in Aisles 4 to 8."
+          ? (isDarkStore ? "आइसल 4 से 8 में सामान ढूंढने में मदद चाहिए।" : "सब्जियों का PLU कोड दर्ज करने में मदद चाहिए।")
+          : (isDarkStore ? "I need help finding items in Aisles 4 to 8." : "I need help entering PLU code for produce.")
       );
       return;
     }
@@ -176,27 +180,45 @@ export const ChatBotPullout: React.FC<ChatBotPulloutProps> = ({
       setIsListening(false);
       handleSendMessage(
         isHindi
-          ? "दूध और दही का कोल्ड रूम कहां है?"
-          : "Where is the cold dairy room?"
+          ? (isDarkStore ? "दूध और दही का कोल्ड रूम कहां है?" : "सब्जी व फल तौल काउंटर कहां है?")
+          : (isDarkStore ? "Where is the cold dairy room?" : "Where is the produce weighing station?")
       );
     }
   };
 
+  const isDarkStore = roleId === "dark_store_picker";
+
   const quickQuestions = isHindi
-    ? [
-        "दूध और दही का कोल्ड रूम कहां है?",
-        "आइसल 4 से 8 में सामान कैसे ढूंढें?",
-        "स्कैनर बारकोड नहीं पढ़ रहा",
-        "सामान का पैकेट फटा हुआ है",
-        "भारी सामान टोट में कैसे रखें?",
-      ]
-    : [
-        "Where is the cold dairy room?",
-        "How to locate items in Aisles 4-8?",
-        "Scanner not reading barcode",
-        "Damaged item protocol",
-        "Heavy items tote packing order",
-      ];
+    ? (isDarkStore
+        ? [
+            "दूध और दही का कोल्ड रूम कहां है?",
+            "आइसल 4 से 8 में सामान कैसे ढूंढें?",
+            "स्कैनर बारकोड नहीं पढ़ रहा",
+            "सामान का पैकेट फटा हुआ है",
+            "भारी सामान टोट में कैसे रखें?",
+          ]
+        : [
+            "सब्जियों का PLU कोड कैसे दर्ज करें?",
+            "कैश लेते समय नकली नोट कैसे जांचें?",
+            "बारकोड न स्कैन होने पर क्या करें?",
+            "यूपीआई पेमेंट पेंडिंग होने पर क्या करें?",
+            "कस्टमर रसीद रिटर्न कैसे प्रोसेस करें?",
+          ])
+    : (isDarkStore
+        ? [
+            "Where is the cold dairy room?",
+            "How to locate items in Aisles 4-8?",
+            "Scanner not reading barcode",
+            "Damaged item protocol",
+            "Heavy items tote packing order",
+          ]
+        : [
+            "How do I enter a produce PLU code?",
+            "What should I check before taking cash?",
+            "What do I do if barcode does not scan?",
+            "How do I handle a UPI payment timeout?",
+            "How do I process a customer item return?",
+          ]);
 
   const handleAlertFloorBuddy = () => {
     setBuddyAlerted(true);

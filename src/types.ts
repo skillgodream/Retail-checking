@@ -279,6 +279,9 @@ export const DARK_STORE_CAPABILITIES: CapabilityDefinition[] = [
   },
 ];
 
+// Re-export Retail Cashier Capabilities as first-class domain citizen
+export { RETAIL_CASHIER_CAPABILITIES } from "./models/retailCashierCapabilities";
+
 export interface DailySignal {
   id: string;
   dayNumber: number;

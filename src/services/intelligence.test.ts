@@ -5,8 +5,8 @@ import {
   evaluateDay10Outcome,
 } from "./intelligence";
 import { adaptGoogleFormFeedRow, DEMO_FEED_PRESETS } from "./googleFormFeedAdapter";
-import { initialRahul, initialCohort } from "../data/seedData";
-import { WorkSignal, ActionOutcome } from "../types";
+import { initialRahul, initialCohort, createDefaultCapabilitiesLedger } from "../data/seedData";
+import { WorkSignal, ActionOutcome, NewHire, DailySignal, ManagerSignal } from "../types";
 
 describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
   const baseHire = initialRahul; // Rahul Sharma, Day 3
@@ -179,7 +179,7 @@ describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
     // It does NOT repeat "Buddy Walkthrough". It escalates!
     expect(["environment_support", "escalate_manager"]).toContain(result.action.decisionType);
     expect(result.action.targetActor).toContain("Supervisor");
-    expect(result.action.title).toContain("Floor Layout & Shelf");
+    expect(result.action.title).toMatch(/Layout & POS Verification|Floor Layout/);
     expect(["Needs attention", "At risk"]).toContain(result.updatedStatus);
     expect(result.action.whyThisAction).toContain("walkthrough failed");
   });
@@ -301,12 +301,12 @@ describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
     const readyHire = {
       ...baseHire,
       modulesCompleted: 10,
-      capabilities: { ...baseHire.capabilities },
+      capabilities: createDefaultCapabilitiesLedger("dark_store_picker"),
     };
     // mark core capabilities demonstrated
-    Object.keys(readyHire.capabilities).forEach((k) => {
-      readyHire.capabilities[Number(k)] = {
-        capabilityId: Number(k),
+    for (let i = 1; i <= 20; i++) {
+      readyHire.capabilities[i] = {
+        capabilityId: i,
         exposure: "reinforced",
         evidence: "demonstrated",
         performance: "on_target",
@@ -314,7 +314,7 @@ describe("Step 4 — Prove Six Doctors Across Real Conditions", () => {
         lastAssessedAt: "Day 10",
         reinforcementCount: 1,
       };
-    });
+    }
 
     const readyInput: LoopExecutionInput = {
       hire: readyHire,
@@ -374,14 +374,14 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
   const baseHire = initialRahul;
 
   it("1. Learner reaches a milestone", () => {
-    // Hire on Day 3 who has demonstrated capabilities 1, 2, 3 and meets 40 UPH floor target
+    // Hire on Day 3 who has demonstrated capabilities 1, 2, 3, 4 and meets Day 3 Cashier milestone expectations
     const hireAtMilestone3 = {
       ...baseHire,
       currentDay: 3,
       modulesCompleted: 3,
       capabilities: { ...baseHire.capabilities },
     };
-    [1, 2, 3].forEach((id) => {
+    [1, 2, 3, 4].forEach((id) => {
       hireAtMilestone3.capabilities[id] = {
         capabilityId: id,
         exposure: "reinforced",
@@ -544,6 +544,9 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
 
     const hireWithActiveRampUp = {
       ...baseHire,
+      currentDay: 4,
+      modulesCompleted: 3,
+      capabilities: { ...baseHire.capabilities },
       rampUpPlan: {
         isActive: true,
         targetMilestoneDay: 3,
@@ -555,11 +558,32 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
         createdAtDay: 3,
       },
     };
+    [1, 2, 3, 4].forEach((id) => {
+      hireWithActiveRampUp.capabilities[id] = {
+        capabilityId: id,
+        exposure: "reinforced",
+        evidence: "demonstrated",
+        performance: "on_target",
+        mastery: "proficient",
+        lastAssessedAt: "Day 4",
+        reinforcementCount: 1,
+      };
+    });
+
+    const workSignal: WorkSignal = {
+      ...adapted.workSignal,
+      dayNumber: 4,
+      actualPickRate: 18,
+      targetPickRate: 15,
+      accuracyRate: 98,
+      ordersCompleted: 35,
+      hasWorkEvidence: true,
+    };
 
     const result = executeCoordinationLoop({
       hire: hireWithActiveRampUp,
       dayNumber: 4,
-      workSignal: adapted.workSignal,
+      workSignal,
       dailySignal: adapted.dailySignal,
       managerSignal: adapted.managerSignal,
       actionOutcome: adapted.actionOutcome,
@@ -616,12 +640,14 @@ describe("Step 3 — Dean Integration to Milestone / Gate Layer Verification", (
       actionOutcome: partialOutcome,
     });
 
+    const targetCapId = result.action.targetCapabilityId || 4;
+
     // Dean must NOT falsely mark full recovery
     expect(result.updatedStatus).toBe("Needs attention");
     expect(result.updatedStatus).not.toBe("Doing well");
     expect(result.rampUpPlan?.isActive).toBe(true); // Ramp up remains active
-    expect(result.updatedCapabilities[3].evidence).toBe("emerging");
-    expect(result.updatedCapabilities[3].mastery).toBe("in_progress");
+    expect(result.updatedCapabilities[targetCapId].evidence).toBe("inconsistent");
+    expect(result.updatedCapabilities[targetCapId].mastery).toBe("in_progress");
     expect(partialOutcome.milestoneImpact).toContain("Partial improvement observed");
   });
 
@@ -1125,14 +1151,16 @@ describe("Step 5 — Part J: Strengthen Evidence -> Diagnosis Quality Requiremen
       performedBy: "Buddy (Vikram R.)",
       performedAt: "Day 4 Start of Shift",
       improved: "yes",
-      subsequentPickRate: 46,
+      subsequentPickRate: 18,
       subsequentAccuracy: 99,
-      notes: "Buddy walkthrough resolved aisle coordinate confusion.",
+      notes: "Buddy walkthrough resolved PLU code lookup friction.",
     };
 
     const hireWithRampUp = {
       ...baseHire,
       currentDay: 4,
+      modulesCompleted: 3,
+      capabilities: { ...baseHire.capabilities },
       rampUpPlan: {
         isActive: true,
         targetMilestoneDay: 3,
@@ -1144,14 +1172,25 @@ describe("Step 5 — Part J: Strengthen Evidence -> Diagnosis Quality Requiremen
         createdAtDay: 3,
       },
     };
+    [1, 2, 3, 4].forEach((id) => {
+      hireWithRampUp.capabilities[id] = {
+        capabilityId: id,
+        exposure: "reinforced",
+        evidence: "demonstrated",
+        performance: "on_target",
+        mastery: "proficient",
+        lastAssessedAt: "Day 4",
+        reinforcementCount: 1,
+      };
+    });
 
     const result = executeCoordinationLoop({
       hire: hireWithRampUp,
       dayNumber: 4,
       workSignal: {
         dayNumber: 4,
-        actualPickRate: 46,
-        targetPickRate: 45,
+        actualPickRate: 18,
+        targetPickRate: 15,
         accuracyRate: 99,
         ordersCompleted: 40,
         targetOrders: 40,
@@ -1334,5 +1373,191 @@ describe("Step 5 — Part J: Strengthen Evidence -> Diagnosis Quality Requiremen
     expect(result.updatedCapabilities).toBeDefined();
     expect(result.adaptiveDecision).toBeDefined();
     expect(result.overallReadinessScore).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Step 6B — Retail Cashier Same-Day Divergence & Day-Number Independence
+  // -------------------------------------------------------------------------
+  describe("Step 6B — Retail Cashier Same-Day Divergence & Evidence Drive", () => {
+    it("Retail Cashier Same-Day Divergence: Same role, same day, different evidence produces distinct recommendations", () => {
+      // Base Cashier profile on Day 3
+      const cashierLearner: NewHire = {
+        ...baseHire,
+        roleId: "retail_cashier",
+        roleTitle: "Retail Cashier",
+        currentDay: 3,
+        modulesCompleted: 3,
+      };
+
+      // Scenario A: Strong Cashier Learner (High scan rate, perfect accuracy, demonstrated capabilities 1-4)
+      const strongLearner: NewHire = {
+        ...cashierLearner,
+        capabilities: { ...cashierLearner.capabilities },
+      };
+      [1, 2, 3, 4].forEach((id) => {
+        strongLearner.capabilities[id] = {
+          capabilityId: id,
+          exposure: "reinforced",
+          evidence: "demonstrated",
+          performance: "on_target",
+          mastery: "proficient",
+          lastAssessedAt: "Day 3",
+          reinforcementCount: 1,
+        };
+      });
+
+      const strongWorkSignal: WorkSignal = {
+        dayNumber: 3,
+        actualPickRate: 22, // 22 items/min scan rate vs target 18
+        targetPickRate: 18,
+        accuracyRate: 99.5,
+        ordersCompleted: 45,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      };
+
+      const outcomeA = executeCoordinationLoop({
+        hire: strongLearner,
+        dayNumber: 3,
+        workSignal: strongWorkSignal,
+        dailySignal: {
+          id: "ds-test-strong",
+          dayNumber: 3,
+          rawText: "Scanning items smoothly at Till 1, customer queue moving fast without barcode delays.",
+          inputMethod: "text",
+          issue: "None",
+          confidence: "High",
+          possibleImpact: "Optimal flow",
+          category: "General",
+          summary: "Smooth scanning",
+          timestamp: "Day 3",
+        },
+        managerSignal: {
+          id: "ms-test-strong",
+          dayNumber: 3,
+          managerName: "Supervisor",
+          state: "Doing well",
+          issueCategory: "Other",
+          notes: "Doing well, strong line speed and accurate scanning.",
+          timestamp: "Day 3",
+        },
+      });
+
+      // Scenario B: Weak Cashier Learner (Same Day 3, same role, but PLU lookup friction & lagging scan rate)
+      const weakLearner: NewHire = {
+        ...cashierLearner,
+        capabilities: {
+          ...cashierLearner.capabilities,
+          4: {
+            capabilityId: 4, // RC-04-MANUAL-PLU-ENTRY
+            exposure: "exposed",
+            evidence: "inconsistent",
+            performance: "below_target",
+            mastery: "in_progress",
+            lastAssessedAt: "Day 3",
+            reinforcementCount: 0,
+          },
+        },
+      };
+
+      const weakWorkSignal: WorkSignal = {
+        dayNumber: 3,
+        actualPickRate: 11, // 11 items/min scan rate lagging behind target 18
+        targetPickRate: 18,
+        accuracyRate: 94,
+        ordersCompleted: 22,
+        targetOrders: 35,
+        helpRequestsCount: 5,
+        hasWorkEvidence: true,
+      };
+
+      const outcomeB = executeCoordinationLoop({
+        hire: weakLearner,
+        dayNumber: 3,
+        workSignal: weakWorkSignal,
+        dailySignal: {
+          id: "ds-test-weak",
+          dayNumber: 3,
+          rawText: "I know barcode scanning, but manual PLU codes for loose produce at Till 1 are confusing and slowing down checkout queue.",
+          inputMethod: "text",
+          issue: "PLU lookup friction",
+          confidence: "Low",
+          possibleImpact: "Checkout delay",
+          category: "Process",
+          summary: "PLU code hesitation",
+          timestamp: "Day 3",
+        },
+        managerSignal: {
+          id: "ms-test-weak",
+          dayNumber: 3,
+          managerName: "Supervisor",
+          state: "Needs support",
+          issueCategory: "Speed",
+          notes: "Needs support with fruit & vegetable PLU code lookup cheat sheet.",
+          timestamp: "Day 3",
+        },
+      });
+
+      // VERIFICATION OF SAME-DAY DIVERGENCE:
+      // Same role ("retail_cashier"), Same Day (Day 3), Different Evidence -> DIVERGENT RECOMMENDATIONS
+      expect(outcomeA.action.decisionType).toBe("advance_default");
+      expect(outcomeA.updatedStatus).toBe("Doing well");
+
+      expect(outcomeB.action.decisionType).not.toBe("advance_default");
+      expect(outcomeB.action.targetCapabilityId).toBe(4); // Targets Cap 4 (PLU Lookup)
+      expect(outcomeB.updatedStatus).not.toBe("Doing well");
+
+      // Direct proof:
+      expect(outcomeA.action.decisionType).not.toEqual(outcomeB.action.decisionType);
+      expect(outcomeA.updatedStatus).not.toEqual(outcomeB.updatedStatus);
+    });
+
+    it("Day-Number Independence: Intelligence decisions are driven by evidence, not hardcoded day numbers", () => {
+      const cashierLearner: NewHire = {
+        ...baseHire,
+        roleId: "retail_cashier",
+        roleTitle: "Retail Cashier",
+        modulesCompleted: 3,
+      };
+      [1, 2, 3, 4].forEach((id) => {
+        cashierLearner.capabilities[id] = {
+          capabilityId: id,
+          exposure: "reinforced",
+          evidence: "demonstrated",
+          performance: "on_target",
+          mastery: "proficient",
+          lastAssessedAt: "Day 3",
+          reinforcementCount: 1,
+        };
+      });
+
+      const strongWork = {
+        actualPickRate: 22,
+        targetPickRate: 18,
+        accuracyRate: 99,
+        ordersCompleted: 40,
+        targetOrders: 35,
+        hasWorkEvidence: true,
+      };
+
+      // Run same strong evidence on Day 3 vs Day 4
+      const resultDay3 = executeCoordinationLoop({
+        hire: { ...cashierLearner, currentDay: 3 },
+        dayNumber: 3,
+        workSignal: { ...strongWork, dayNumber: 3 },
+      });
+
+      const resultDay4 = executeCoordinationLoop({
+        hire: { ...cashierLearner, currentDay: 4 },
+        dayNumber: 4,
+        workSignal: { ...strongWork, dayNumber: 4 },
+      });
+
+      // Both evaluate strong evidence and recommend advancement to Cap 5
+      expect(resultDay3.action.decisionType).toBe("advance_default");
+      expect(resultDay4.action.decisionType).toBe("advance_default");
+      expect(resultDay3.action.targetCapabilityId).toBe(5);
+      expect(resultDay4.action.targetCapabilityId).toBe(5);
+    });
   });
 });
